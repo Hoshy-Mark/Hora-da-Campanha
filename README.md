@@ -4,7 +4,9 @@ Site de sessão para Mestre × Jogadores — **de qualquer sistema de RPG de mes
 
 Todo mundo entra na mesma campanha e vê vida, recursos, itens e habilidades sincronizando ao vivo; o Mestre enxerga informações extras (notas, itens ainda não entregues, habilidades ainda não reveladas) que os jogadores não veem — inclusive no nível do banco de dados (Row Level Security), não só escondido na tela.
 
-**Fase atual: Fase 3** — autenticação, sistemas via JSON, campanhas, presença ao vivo, ficha de personagem sincronizada (gerada a partir do schema, com Estamina/Spirit/Mana/Soul editáveis em tempo real), e agora Habilidades e Itens com revelação gradual: o Mestre cadastra qualquer coisa oculta por padrão e revela quando quiser — os jogadores nem sabem que existe até isso acontecer (garantido pelo Row Level Security, não só escondido na tela).
+**Em produção:** [hora-da-campanha.vercel.app](https://hora-da-campanha.vercel.app)
+
+**Status:** as 5 fases do roadmap original estão completas — auth, sistemas via JSON, campanhas, ficha de personagem sincronizada, Habilidades/Itens com revelação gradual, mapa tático com tokens arrastáveis, rastreador de iniciativa, Notas do Mestre, Segredos por personagem — mais rolador de dados compartilhado e presença online em tempo real (quem está com a aba aberta agora, via Supabase Presence).
 
 ## Como o sistema genérico funciona
 
