@@ -1,0 +1,92 @@
+{
+  "name": "Blade Strands",
+  "version": "1.0",
+  "sections": [
+    {
+      "key": "identidade",
+      "label": "Identidade do Personagem",
+      "fields": [
+        { "key": "origem", "label": "Origem / Região", "type": "text" },
+        { "key": "idade", "label": "Idade", "type": "text" },
+        { "key": "profissao", "label": "Profissão / Função", "type": "text" },
+        {
+          "key": "historico",
+          "label": "Histórico de Sobrevivência",
+          "type": "number",
+          "min": 0,
+          "max": 5,
+          "helpText": "0-1 vida estável · 2-3 já enfrentou perdas reais · 4-5 sobreviveu a eventos que mudam pessoas."
+        }
+      ]
+    },
+    {
+      "key": "atributos",
+      "label": "Atributos Principais",
+      "fields": [
+        { "key": "FOR", "label": "Força", "type": "number", "min": 1, "max": 15 },
+        { "key": "RES", "label": "Resistência", "type": "number", "min": 1, "max": 15 },
+        { "key": "REF", "label": "Reflexo", "type": "number", "min": 1, "max": 15 },
+        { "key": "TEC", "label": "Perícia", "type": "number", "min": 1, "max": 15 },
+        { "key": "PER", "label": "Percepção", "type": "number", "min": 1, "max": 15 },
+        { "key": "FOG", "label": "Fôlego", "type": "number", "min": 1, "max": 15 },
+        { "key": "CON", "label": "Consciência", "type": "number", "min": 1, "max": 15 },
+        { "key": "IDE", "label": "Identidade", "type": "number", "min": 1, "max": 15 },
+        { "key": "ANC", "label": "Ancoragem", "type": "number", "min": 1, "max": 15, "helpText": "Não possui subatributos." }
+      ]
+    },
+    {
+      "key": "subatributos",
+      "label": "Subatributos",
+      "description": "Soma dos 3 subatributos de um atributo deve ser igual ao atributo. Máximo por subatributo: ⌈atributo ÷ 2⌉. Mínimo biológico: 2.",
+      "fields": [
+        { "key": "potencia", "label": "Potência (Força)", "type": "number", "min": 2 },
+        { "key": "estrutura", "label": "Estrutura (Força)", "type": "number", "min": 2 },
+        { "key": "coordenacao", "label": "Coordenação (Força)", "type": "number", "min": 2 },
+        { "key": "tecido", "label": "Tecido (Resistência)", "type": "number", "min": 2 },
+        { "key": "recuperacao", "label": "Recuperação (Resistência)", "type": "number", "min": 2 },
+        { "key": "endurecimento", "label": "Endurecimento (Resistência)", "type": "number", "min": 2 },
+        { "key": "velocidade", "label": "Velocidade (Reflexo)", "type": "number", "min": 2 },
+        { "key": "precisao", "label": "Precisão (Reflexo)", "type": "number", "min": 2 },
+        { "key": "estabilidade", "label": "Estabilidade (Reflexo)", "type": "number", "min": 2 },
+        { "key": "execucao", "label": "Execução (Perícia)", "type": "number", "min": 2 },
+        { "key": "economia", "label": "Economia (Perícia)", "type": "number", "min": 2 },
+        { "key": "adaptacao", "label": "Adaptação (Perícia)", "type": "number", "min": 2 },
+        { "key": "atencao", "label": "Atenção (Percepção)", "type": "number", "min": 2 },
+        { "key": "antecipacao", "label": "Antecipação (Percepção)", "type": "number", "min": 2 },
+        { "key": "discernimento", "label": "Discernimento (Percepção)", "type": "number", "min": 2 },
+        { "key": "captacao", "label": "Captação (Fôlego)", "type": "number", "min": 2 },
+        { "key": "reservatorio", "label": "Reservatório (Fôlego)", "type": "number", "min": 2 },
+        { "key": "ritmo", "label": "Ritmo (Fôlego)", "type": "number", "min": 2 },
+        { "key": "foco", "label": "Foco (Consciência)", "type": "number", "min": 2 },
+        { "key": "clareza", "label": "Clareza (Consciência)", "type": "number", "min": 2 },
+        { "key": "calculo", "label": "Cálculo (Consciência)", "type": "number", "min": 2 },
+        { "key": "continuidade", "label": "Continuidade (Identidade)", "type": "number", "min": 2 },
+        { "key": "intensidade", "label": "Intensidade (Identidade)", "type": "number", "min": 2 },
+        { "key": "autodefinicao", "label": "Autodefinição (Identidade)", "type": "number", "min": 2 }
+      ]
+    },
+    {
+      "key": "derivados",
+      "label": "Pilares de Ascensão",
+      "description": "v1 do Mesa RPG ainda não calcula fórmulas sozinha — some os atributos conforme a seção 5 das Regras e digite o resultado aqui.",
+      "fields": [
+        { "key": "spirit_capacidade", "label": "Spirit — Capacidade (FOR+RES)", "type": "number", "min": 0 },
+        { "key": "spirit_densidade", "label": "Spirit — Densidade (REF+TEC)", "type": "number", "min": 0 },
+        { "key": "spirit_tolerancia", "label": "Spirit — Tolerância (RES)", "type": "number", "min": 0 },
+        { "key": "mana_capacidade", "label": "Mana — Capacidade (FOG+CON)", "type": "number", "min": 0 },
+        { "key": "mana_densidade", "label": "Mana — Densidade (TEC+CON)", "type": "number", "min": 0 },
+        { "key": "mana_tolerancia", "label": "Mana — Tolerância (FOG)", "type": "number", "min": 0 },
+        { "key": "soul_capacidade", "label": "Soul — Capacidade (CON+IDE)", "type": "number", "min": 0 },
+        { "key": "soul_densidade", "label": "Soul — Densidade (PER+IDE)", "type": "number", "min": 0 },
+        { "key": "soul_tolerancia", "label": "Soul — Tolerância (IDE+ANC)", "type": "number", "min": 0 },
+        { "key": "prioridade_existencial", "label": "Prioridade Existencial (IDE+PER+Histórico)", "type": "number", "min": 0 }
+      ]
+    }
+  ],
+  "resources": [
+    { "key": "estamina", "label": "Estamina", "type": "bar", "maxDefault": 100, "color": "#4a9d5f" },
+    { "key": "spirit", "label": "Spirit", "type": "bar", "maxDefault": 0, "color": "#e05a3a" },
+    { "key": "mana", "label": "Mana", "type": "bar", "maxDefault": 0, "color": "#3a8acd" },
+    { "key": "soul", "label": "Soul — Integridade", "type": "text" }
+  ]
+}

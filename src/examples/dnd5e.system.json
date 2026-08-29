@@ -1,0 +1,44 @@
+{
+  "name": "D&D 5ª Edição",
+  "version": "1.0",
+  "sections": [
+    {
+      "key": "identidade",
+      "label": "Identidade do Personagem",
+      "fields": [
+        { "key": "raca", "label": "Raça", "type": "text" },
+        { "key": "classe", "label": "Classe", "type": "text" },
+        { "key": "nivel", "label": "Nível", "type": "number", "min": 1, "max": 20, "defaultValue": 1 },
+        { "key": "antecedente", "label": "Antecedente", "type": "text" },
+        { "key": "alinhamento", "label": "Alinhamento", "type": "select", "options": ["Leal e Bom", "Neutro e Bom", "Caótico e Bom", "Leal e Neutro", "Neutro", "Caótico e Neutro", "Leal e Mau", "Neutro e Mau", "Caótico e Mau"] }
+      ]
+    },
+    {
+      "key": "atributos",
+      "label": "Atributos",
+      "description": "Modificador não é calculado automaticamente nesta versão — anote o resultado de (Atributo-10)/2 arredondado para baixo, se quiser, num campo de combate.",
+      "fields": [
+        { "key": "STR", "label": "Força", "type": "number", "min": 1, "max": 30, "defaultValue": 10 },
+        { "key": "DEX", "label": "Destreza", "type": "number", "min": 1, "max": 30, "defaultValue": 10 },
+        { "key": "CON", "label": "Constituição", "type": "number", "min": 1, "max": 30, "defaultValue": 10 },
+        { "key": "INT", "label": "Inteligência", "type": "number", "min": 1, "max": 30, "defaultValue": 10 },
+        { "key": "WIS", "label": "Sabedoria", "type": "number", "min": 1, "max": 30, "defaultValue": 10 },
+        { "key": "CHA", "label": "Carisma", "type": "number", "min": 1, "max": 30, "defaultValue": 10 }
+      ]
+    },
+    {
+      "key": "combate",
+      "label": "Combate",
+      "fields": [
+        { "key": "ca", "label": "Classe de Armadura", "type": "number", "min": 0 },
+        { "key": "bonus_proficiencia", "label": "Bônus de Proficiência", "type": "number", "min": 2, "max": 6, "defaultValue": 2 },
+        { "key": "deslocamento", "label": "Deslocamento (m)", "type": "number", "min": 0, "defaultValue": 9 }
+      ]
+    }
+  ],
+  "resources": [
+    { "key": "hp", "label": "Pontos de Vida", "type": "bar", "maxDefault": 10, "color": "#c0392b" },
+    { "key": "dados_de_vida", "label": "Dados de Vida", "type": "text" },
+    { "key": "espacos_de_magia", "label": "Espaços de Magia", "type": "text" }
+  ]
+}
