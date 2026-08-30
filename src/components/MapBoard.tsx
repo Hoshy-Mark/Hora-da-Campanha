@@ -499,6 +499,11 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                   canMove={canMoveToken(t)}
                   isGm={isGm}
                   boardRef={boardRef}
+                  gridSnap={
+                    currentMap.kind === 'tilemap' && currentMap.tile_data
+                      ? { cols: currentMap.tile_data.cols, rows: currentMap.tile_data.rows }
+                      : null
+                  }
                   onMove={handleMoveToken}
                 />
               ))}

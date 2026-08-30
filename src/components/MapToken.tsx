@@ -20,15 +20,27 @@ const TYPE_COLOR: Record<TokenRow['token_type'], string> = {
   other: '#8f95a3',
 };
 
+interface GridSnap {
+  cols: number;
+  rows: number;
+}
+
 interface Props {
   token: TokenRow;
   canMove: boolean;
   isGm: boolean;
   boardRef: React.RefObject<HTMLDivElement | null>;
+  gridSnap: GridSnap | null;
   onMove: (id: string, pos_x: number, pos_y: number) => void;
 }
 
-export function MapToken({ token, canMove, isGm, boardRef, onMove }: Props) {
+function snapToCellCenter(pct: number, cellCount: number) {
+  const cellPct = 100 / cellCount;
+  const idx = Math.min(cellCount - 1, Math.max(0, Math.floor(pct / cellPct)));
+  return (idx + 0.5) * cellPct;
+}
+
+export function MapToken({ token, canMove, isGm, boardRef, gridSnap, onMove }: Props) {
   const dragging = useRef(false);
 
   function handlePointerDown(e: ReactPointerEvent<HTMLDivElement>) {
@@ -40,8 +52,16 @@ export function MapToken({ token, canMove, isGm, boardRef, onMove }: Props) {
   function handlePointerMove(e: ReactPointerEvent<HTMLDivElement>) {
     if (!dragging.current || !boardRef.current) return;
     const rect = boardRef.current.getBoundingClientRect();
-    const pctX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-    const pctY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    let pctX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    let pctY = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    // Num mapa de tiles, o token gruda no centro da célula mais próxima em
+    // vez de ficar em posição livre — mais fácil de ler quem está onde
+    // numa grade tática. Mapa de imagem continua livre (sem grid pra
+    // encaixar).
+    if (gridSnap) {
+      pctX = snapToCellCenter(pctX, gridSnap.cols);
+      pctY = snapToCellCenter(pctY, gridSnap.rows);
+    }
     e.currentTarget.style.left = `${pctX}%`;
     e.currentTarget.style.top = `${pctY}%`;
     e.currentTarget.dataset.pendingX = String(pctX);
