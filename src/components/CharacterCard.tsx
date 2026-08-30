@@ -18,9 +18,24 @@ interface Props {
   onSelect: () => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
+  // Presentes só pro Mestre: lista de jogadores da mesa pra escolher, e o
+  // callback que grava a troca de dono. Ausentes = jogador vendo o card,
+  // sem controle nenhum de atribuição.
+  players?: { user_id: string; name: string }[];
+  onAssignOwner?: (ownerId: string | null) => void;
 }
 
-export function CharacterCard({ character, schema, ownerName, selected, onSelect, onDelete, onDuplicate }: Props) {
+export function CharacterCard({
+  character,
+  schema,
+  ownerName,
+  selected,
+  onSelect,
+  onDelete,
+  onDuplicate,
+  players,
+  onAssignOwner,
+}: Props) {
   const barResources = schema.resources.filter((r) => r.type === 'bar');
   const avatarUrl = character.avatar_path
     ? supabase.storage.from('maps').getPublicUrl(character.avatar_path).data.publicUrl
@@ -66,6 +81,21 @@ export function CharacterCard({ character, schema, ownerName, selected, onSelect
         <button type="button" className="link-btn danger character-card-delete" onClick={onDelete}>
           ✕
         </button>
+      )}
+      {onAssignOwner && players && (
+        <select
+          className="character-card-assign"
+          value={character.owner_id ?? ''}
+          title="Atribuir a um jogador"
+          onChange={(e) => onAssignOwner(e.target.value || null)}
+        >
+          <option value="">NPC (Mestre)</option>
+          {players.map((p) => (
+            <option key={p.user_id} value={p.user_id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
       )}
     </div>
   );

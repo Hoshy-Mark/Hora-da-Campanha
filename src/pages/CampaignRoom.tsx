@@ -17,6 +17,7 @@ import { logActivity } from '../lib/activity';
 import { useOnlineUserIds } from '../lib/usePresence';
 import { useToast } from '../context/ToastContext';
 import { downloadJson } from '../lib/download';
+import { buildCampaignSnapshot } from '../lib/campaignSnapshot';
 
 interface Member {
   user_id: string;
@@ -429,6 +430,20 @@ export function CampaignRoom() {
     logActivity(campaignId, `${source.name} foi duplicado.`);
   }
 
+  // Habilita dar dono a um personagem que nasceu sem um (instanciado do
+  // Bestiário, duplicado, ou restaurado/clonado de um backup) — sem isso
+  // ele fica preso ao Mestre pra sempre.
+  async function handleAssignOwner(characterId: string, ownerId: string | null) {
+    setCharacters((prev) =>
+      prev.map((c) => (c.id === characterId ? { ...c, owner_id: ownerId, is_npc: ownerId === null } : c))
+    );
+    const { error } = await supabase
+      .from('characters')
+      .update({ owner_id: ownerId, is_npc: ownerId === null })
+      .eq('id', characterId);
+    if (error) showToast(error.message, 'error');
+  }
+
   async function handleRemoveMember(userId: string, name: string) {
     if (!campaignId) return;
     if (!confirm(`Remover ${name} da campanha? Ele(a) precisará de um novo convite pra voltar.`)) return;
@@ -442,77 +457,18 @@ export function CampaignRoom() {
     else showToast(`${name} foi removido(a) da mesa.`, 'success');
   }
 
-  // Backup somente-leitura da campanha inteira, pra download local — sem
-  // fluxo de "restaurar" simétrico, porque isso exigiria remapear IDs e
-  // reenviar assets de imagem pro Storage (mapas-imagem só levam
-  // nome/metadados aqui, sem os bytes da imagem).
+  // Backup pra download local — dá pra restaurar depois via "Importar
+  // campanha (JSON)" ou "Clonar" no Dashboard (restoreCampaignFromSnapshot),
+  // mas é uma restauração PARCIAL: mapas de imagem e imagens de handout não
+  // fazem parte do snapshot (nunca fizeram, nem aqui no export), então
+  // ficam de fora — só dado estruturado é restaurado de verdade.
   async function handleExportBackup() {
     if (!campaignId || !campaign) return;
     setExportingBackup(true);
-
-    const [
-      { data: abilitiesData },
-      { data: itemsData },
-      { data: secretsData },
-      { data: mapsData },
-      { data: notesData },
-      { data: handoutsData },
-    ] = await Promise.all([
-      supabase
-        .from('character_abilities')
-        .select('character_id, name, category, cost, tier, description')
-        .eq('campaign_id', campaignId),
-      supabase
-        .from('inventory_items')
-        .select('character_id, name, description, quantity')
-        .eq('campaign_id', campaignId),
-      supabase.from('character_secrets').select('character_id, title, content').eq('campaign_id', campaignId),
-      supabase.from('maps').select('name, kind, tile_data').eq('campaign_id', campaignId),
-      supabase.from('gm_notes').select('title, content').eq('campaign_id', campaignId),
-      supabase.from('handouts').select('title, content').eq('campaign_id', campaignId),
-    ]);
-
-    type Linked<T> = T & { character_id: string | null };
-    const abilities = (abilitiesData ?? []) as unknown as Linked<{
-      name: string;
-      category: string | null;
-      cost: string | null;
-      tier: string | null;
-      description: string | null;
-    }>[];
-    const items = (itemsData ?? []) as unknown as Linked<{
-      name: string;
-      description: string | null;
-      quantity: number;
-    }>[];
-    const secrets = (secretsData ?? []) as unknown as Linked<{ title: string; content: string }>[];
-
-    const backup = {
-      name: campaign.name,
-      exportedAt: new Date().toISOString(),
-      gameSystem: campaign.game_systems
-        ? { name: campaign.game_systems.name, schema: campaign.game_systems.schema }
-        : null,
-      characters: characters.map((c) => ({
-        name: c.name,
-        isNpc: c.is_npc,
-        sheetData: c.sheet_data,
-        abilities: abilities.filter((a) => a.character_id === c.id),
-        items: items.filter((it) => it.character_id === c.id),
-        secrets: secrets.filter((s) => s.character_id === c.id),
-      })),
-      maps: ((mapsData ?? []) as unknown as { name: string; kind: string; tile_data: unknown }[]).map((m) => ({
-        name: m.name,
-        kind: m.kind,
-        tileData: m.kind === 'tilemap' ? m.tile_data : undefined,
-      })),
-      gmNotes: notesData ?? [],
-      handouts: handoutsData ?? [],
-    };
-
+    const snapshot = await buildCampaignSnapshot(campaignId);
     setExportingBackup(false);
-    downloadJson(`${campaign.name}.backup.json`, backup);
-    showToast('Backup gerado (só leitura — não há como reimportar uma campanha inteira).', 'success');
+    downloadJson(`${campaign.name}.backup.json`, snapshot);
+    showToast('Backup gerado! Dá pra recriar a campanha (sem imagens) via "Importar campanha" no Dashboard.', 'success');
   }
 
   if (loadError) return <p className="auth-error">{loadError}</p>;
@@ -532,7 +488,7 @@ export function CampaignRoom() {
             className="link-btn"
             disabled={exportingBackup}
             onClick={handleExportBackup}
-            title="Backup somente-leitura: personagens, fichas, mapas, notas e handouts. Não existe importar de volta."
+            title="Personagens, fichas, mapas de tiles, notas e handouts (texto). Dá pra restaurar via 'Importar campanha' no Dashboard — mapas de imagem não entram no backup."
           >
             {exportingBackup ? 'Gerando…' : 'Baixar backup (JSON)'}
           </button>
@@ -647,6 +603,8 @@ export function CampaignRoom() {
                     }}
                     onDelete={isGm || c.owner_id === user?.id ? () => handleDeleteCharacter(c.id) : undefined}
                     onDuplicate={isGm ? () => handleDuplicateCharacter(c) : undefined}
+                    players={isGm ? playerMembers.map((m) => ({ user_id: m.user_id, name: m.profiles?.display_name ?? m.user_id })) : undefined}
+                    onAssignOwner={isGm ? (ownerId) => handleAssignOwner(c.id, ownerId) : undefined}
                   />
                 ))}
               </div>

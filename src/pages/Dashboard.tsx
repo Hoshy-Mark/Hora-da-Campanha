@@ -1,8 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { parseCampaignBackupJson, type CampaignSnapshot } from '../types/campaign-backup';
+import { buildCampaignSnapshot } from '../lib/campaignSnapshot';
+import { restoreCampaignFromSnapshot } from '../lib/campaignRestore';
 
 interface CampaignRow {
   campaign_id: string;
@@ -27,6 +30,14 @@ export function Dashboard() {
   const [selectedSystemId, setSelectedSystemId] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const [showImport, setShowImport] = useState(false);
+  const [importRawJson, setImportRawJson] = useState('');
+  const [importPreview, setImportPreview] = useState<CampaignSnapshot | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [cloningId, setCloningId] = useState<string | null>(null);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   async function loadAll() {
     setLoading(true);
@@ -85,6 +96,68 @@ export function Dashboard() {
     setInviteCode('');
     showToast('Você entrou na campanha!', 'success');
     if (data) navigate(`/campaign/${data.id}`);
+  }
+
+  function handleImportJsonChange(value: string) {
+    setImportRawJson(value);
+    if (!value.trim()) {
+      setImportPreview(null);
+      setImportError(null);
+      return;
+    }
+    const result = parseCampaignBackupJson(value);
+    if (result.ok && result.snapshot) {
+      setImportPreview(result.snapshot);
+      setImportError(null);
+    } else {
+      setImportPreview(null);
+      setImportError(result.error ?? 'Erro desconhecido ao validar o backup.');
+    }
+  }
+
+  function handleImportFileUpload(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => handleImportJsonChange(String(reader.result ?? ''));
+    reader.readAsText(file);
+  }
+
+  async function handleImportSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!importPreview) return;
+    setImporting(true);
+    try {
+      const { campaignId, warnings } = await restoreCampaignFromSnapshot(importPreview);
+      showToast(`Campanha "${importPreview.name}" restaurada!`, 'success');
+      warnings.forEach((w) => showToast(w, 'info'));
+      setImportRawJson('');
+      setImportPreview(null);
+      setShowImport(false);
+      if (importFileInputRef.current) importFileInputRef.current.value = '';
+      navigate(`/campaign/${campaignId}`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erro ao restaurar a campanha.', 'error');
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function handleCloneCampaign(campaignId: string, name: string) {
+    if (!confirm(`Clonar "${name}" como uma campanha nova? Personagens são copiados sem dono (o Mestre atribui depois); mapas de imagem não são copiados.`))
+      return;
+    setCloningId(campaignId);
+    try {
+      const snapshot = await buildCampaignSnapshot(campaignId);
+      const { campaignId: newCampaignId, warnings } = await restoreCampaignFromSnapshot(snapshot);
+      showToast(`Campanha "${name}" clonada!`, 'success');
+      warnings.forEach((w) => showToast(w, 'info'));
+      navigate(`/campaign/${newCampaignId}`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erro ao clonar a campanha.', 'error');
+    } finally {
+      setCloningId(null);
+    }
   }
 
   async function handleDeleteCampaign(campaignId: string, name: string) {
@@ -151,6 +224,54 @@ export function Dashboard() {
         </form>
       </section>
 
+      <section className="system-import">
+        <div className="section-head-row">
+          <h2>Importar campanha (JSON)</h2>
+          <button
+            className="link-btn"
+            onClick={() => {
+              if (showImport) {
+                setImportRawJson('');
+                setImportPreview(null);
+                setImportError(null);
+              }
+              setShowImport((s) => !s);
+            }}
+          >
+            {showImport ? 'Cancelar' : '+ Importar campanha'}
+          </button>
+        </div>
+
+        {showImport && (
+          <form onSubmit={handleImportSubmit} className="system-form">
+            <p className="muted" style={{ gridColumn: '1 / -1', margin: 0 }}>
+              Recria uma campanha nova a partir de um backup baixado em "Baixar backup (JSON)" dentro de uma
+              campanha. É uma restauração parcial: mapas de imagem e imagens de handout não fazem parte do backup,
+              então não são restaurados. Personagens nascem sem dono — atribua a um jogador depois.
+            </p>
+            <label>
+              Arquivo JSON
+              <input ref={importFileInputRef} type="file" accept=".json,application/json" onChange={handleImportFileUpload} />
+            </label>
+            <label>
+              Ou cole o JSON aqui
+              <textarea rows={8} value={importRawJson} onChange={(e) => handleImportJsonChange(e.target.value)} />
+            </label>
+            {importError && <p className="auth-error">{importError}</p>}
+            {importPreview && (
+              <div className="schema-preview">
+                <strong>Pré-visualização:</strong> "{importPreview.name}" — {importPreview.characters.length}{' '}
+                personagem(ns), {importPreview.maps.length} mapa(s), {importPreview.gmNotes.length} nota(s),{' '}
+                {importPreview.handouts.length} handout(s)
+              </div>
+            )}
+            <button type="submit" disabled={!importPreview || importing}>
+              {importing ? 'Restaurando…' : 'Restaurar campanha'}
+            </button>
+          </form>
+        )}
+      </section>
+
       {loading ? (
         <p className="muted">Carregando…</p>
       ) : campaigns.length === 0 ? (
@@ -167,12 +288,21 @@ export function Dashboard() {
                 )}
               </button>
               {c.role === 'gm' ? (
-                <button
-                  className="link-btn danger campaign-list-action"
-                  onClick={() => handleDeleteCampaign(c.campaign_id, c.campaigns?.name ?? 'esta campanha')}
-                >
-                  Apagar
-                </button>
+                <>
+                  <button
+                    className="link-btn campaign-list-action"
+                    disabled={cloningId === c.campaign_id}
+                    onClick={() => handleCloneCampaign(c.campaign_id, c.campaigns?.name ?? 'esta campanha')}
+                  >
+                    {cloningId === c.campaign_id ? 'Clonando…' : 'Clonar'}
+                  </button>
+                  <button
+                    className="link-btn danger campaign-list-action"
+                    onClick={() => handleDeleteCampaign(c.campaign_id, c.campaigns?.name ?? 'esta campanha')}
+                  >
+                    Apagar
+                  </button>
+                </>
               ) : (
                 <button
                   className="link-btn danger campaign-list-action"

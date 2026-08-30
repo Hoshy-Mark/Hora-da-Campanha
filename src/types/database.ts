@@ -71,7 +71,7 @@ export interface Database {
           is_npc?: boolean;
           avatar_path?: string | null;
         };
-        Update: Partial<{ name: string; sheet_data: SheetData; avatar_path: string | null }>;
+        Update: Partial<{ name: string; sheet_data: SheetData; avatar_path: string | null; owner_id: string | null; is_npc: boolean }>;
         Relationships: Relationships;
       };
       character_secrets: {
