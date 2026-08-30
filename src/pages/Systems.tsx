@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { parseGameSystemSchema, type GameSystemSchema } from '../types/game-system';
+import { downloadJson } from '../lib/download';
 import bladeStrandsExample from '../examples/blade-strands.system.json?raw';
 import dnd5eExample from '../examples/dnd5e.system.json?raw';
 
@@ -190,9 +191,14 @@ export function Systems() {
                     — {s.schema.sections.length} seções, {s.schema.resources.length} recursos
                   </span>
                 </div>
-                <button className="link-btn danger" onClick={() => handleDelete(s.id)}>
-                  Apagar
-                </button>
+                <div className="reveal-item-actions">
+                  <button className="link-btn" onClick={() => downloadJson(`${s.name}.system.json`, s.schema)}>
+                    Baixar JSON
+                  </button>
+                  <button className="link-btn danger" onClick={() => handleDelete(s.id)}>
+                    Apagar
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

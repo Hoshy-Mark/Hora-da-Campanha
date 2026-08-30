@@ -24,6 +24,7 @@ export function Handouts({ campaignId, isGm }: Props) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
@@ -124,15 +125,30 @@ export function Handouts({ campaignId, isGm }: Props) {
     await refresh();
   }
 
+  const normalizedSearch = search.trim().toLowerCase();
+  const visibleHandouts = handouts.filter(
+    (h) => !normalizedSearch || h.title.toLowerCase().includes(normalizedSearch)
+  );
+
   return (
     <div className="handouts-page">
       <div className="section-head-row">
         <h2>Handouts</h2>
-        {isGm && (
-          <button className="link-btn" onClick={() => setShowForm((s) => !s)}>
-            {showForm ? 'Cancelar' : '+ Novo handout'}
-          </button>
-        )}
+        <div className="map-controls">
+          {handouts.length > 3 && (
+            <input
+              placeholder="Buscar por título…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="list-search-input"
+            />
+          )}
+          {isGm && (
+            <button className="link-btn" onClick={() => setShowForm((s) => !s)}>
+              {showForm ? 'Cancelar' : '+ Novo handout'}
+            </button>
+          )}
+        </div>
       </div>
       {isGm && (
         <p className="muted gm-notes-hint">Imagens, cartas e pistas — crie oculto e revele pros jogadores na hora certa.</p>
@@ -149,13 +165,17 @@ export function Handouts({ campaignId, isGm }: Props) {
         </form>
       )}
 
-      {handouts.length === 0 ? (
+      {visibleHandouts.length === 0 ? (
         <p className="muted empty-list-hint">
-          {isGm ? 'Nenhum handout ainda.' : 'O Mestre ainda não revelou nada por aqui.'}
+          {handouts.length > 0
+            ? 'Nenhum handout corresponde à busca.'
+            : isGm
+              ? 'Nenhum handout ainda.'
+              : 'O Mestre ainda não revelou nada por aqui.'}
         </p>
       ) : (
         <div className="handout-grid">
-          {handouts.map((h) => (
+          {visibleHandouts.map((h) => (
             <div key={h.id} className={`sheet-card handout-card ${h.visible_to_player ? '' : 'hidden-item'}`}>
               {h.image_path && (
                 <a href={publicUrlFor(h.image_path)} target="_blank" rel="noreferrer" className="handout-image-link">

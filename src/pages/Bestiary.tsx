@@ -1,11 +1,12 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { emptySheetData, recomputeFormulas, type GameSystemSchema, type SheetData } from '../types/game-system';
-import type { TemplateAbility, TemplateItem } from '../types/monster-template';
+import { parseTemplateJson, type TemplateAbility, type TemplateItem } from '../types/monster-template';
 import { SheetFieldsEditor } from '../components/SheetFieldsEditor';
 import { ResourceBar } from '../components/ResourceBar';
+import { downloadJson } from '../lib/download';
 
 interface SystemRow {
   id: string;
@@ -36,6 +37,7 @@ export function Bestiary() {
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterSystemId, setFilterSystemId] = useState('');
+  const [search, setSearch] = useState('');
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -49,6 +51,14 @@ export function Bestiary() {
   const [abilityDraft, setAbilityDraft] = useState(emptyAbilityDraft);
   const [itemDraft, setItemDraft] = useState(emptyItemDraft);
   const [saving, setSaving] = useState(false);
+
+  const [showImport, setShowImport] = useState(false);
+  const [importSystemId, setImportSystemId] = useState('');
+  const [importRawJson, setImportRawJson] = useState('');
+  const [importPreview, setImportPreview] = useState<ReturnType<typeof parseTemplateJson>['entries']>(undefined);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   const activeSchema = systems.find((s) => s.id === systemId)?.schema ?? null;
 
@@ -196,8 +206,69 @@ export function Bestiary() {
     else showToast('Molde apagado.', 'success');
   }
 
+  function handleImportJsonChange(value: string) {
+    setImportRawJson(value);
+    if (!value.trim()) {
+      setImportPreview(undefined);
+      setImportError(null);
+      return;
+    }
+    const result = parseTemplateJson(value);
+    if (result.ok && result.entries) {
+      setImportPreview(result.entries);
+      setImportError(null);
+    } else {
+      setImportPreview(undefined);
+      setImportError(result.error ?? 'Erro desconhecido ao validar o JSON.');
+    }
+  }
+
+  function handleImportFileUpload(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => handleImportJsonChange(String(reader.result ?? ''));
+    reader.readAsText(file);
+  }
+
+  async function handleImportSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!importPreview || !importSystemId || !user) return;
+    setImporting(true);
+
+    const { error } = await supabase.from('monster_templates').insert(
+      importPreview.map((t) => ({
+        owner_id: user.id,
+        game_system_id: importSystemId,
+        name: t.name,
+        is_boss: t.isBoss ?? false,
+        sheet_data: t.sheetData,
+        abilities: t.abilities ?? [],
+        items: t.items ?? [],
+        notes: t.notes ?? null,
+      }))
+    );
+
+    setImporting(false);
+    if (error) {
+      showToast(error.message, 'error');
+      return;
+    }
+    setImportRawJson('');
+    setImportPreview(undefined);
+    setImportSystemId('');
+    if (importFileInputRef.current) importFileInputRef.current.value = '';
+    showToast(`${importPreview.length} molde(s) importado(s)!`, 'success');
+    setShowImport(false);
+  }
+
   const systemNameById = new Map(systems.map((s) => [s.id, s.name]));
-  const visibleTemplates = filterSystemId ? templates.filter((t) => t.game_system_id === filterSystemId) : templates;
+  const normalizedSearch = search.trim().toLowerCase();
+  const visibleTemplates = templates.filter(
+    (t) =>
+      (!filterSystemId || t.game_system_id === filterSystemId) &&
+      (!normalizedSearch || t.name.toLowerCase().includes(normalizedSearch))
+  );
 
   return (
     <div className="systems-page">
@@ -206,6 +277,76 @@ export function Bestiary() {
         Moldes de monstros e NPCs reutilizáveis entre campanhas que usam o mesmo sistema. Ao instanciar um molde numa
         mesa, ele vira um personagem novo (NPC oculto por padrão) com a ficha, habilidades e itens já preenchidos.
       </p>
+
+      <section className="system-import">
+        <div className="section-head-row">
+          <h2>Importar moldes (JSON)</h2>
+          <button
+            className="link-btn"
+            onClick={() => {
+              if (showImport) {
+                setImportRawJson('');
+                setImportPreview(undefined);
+                setImportError(null);
+                setImportSystemId('');
+              }
+              setShowImport((s) => !s);
+            }}
+          >
+            {showImport ? 'Cancelar' : '+ Importar JSON'}
+          </button>
+        </div>
+
+        {showImport && (
+          <form onSubmit={handleImportSubmit} className="system-form">
+            <label>
+              Sistema
+              <select value={importSystemId} onChange={(e) => setImportSystemId(e.target.value)}>
+                <option value="" disabled>
+                  Selecione um sistema…
+                </option>
+                {systems.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Arquivo JSON
+              <input
+                ref={importFileInputRef}
+                type="file"
+                accept=".json,application/json"
+                onChange={handleImportFileUpload}
+              />
+            </label>
+
+            <label>
+              Ou cole o JSON aqui
+              <textarea
+                rows={10}
+                value={importRawJson}
+                onChange={(e) => handleImportJsonChange(e.target.value)}
+                placeholder='[{ "name": "...", "sheetData": { "fields": {...}, "resources": {...} }, "abilities": [...], "items": [...] }]'
+              />
+            </label>
+
+            {importError && <p className="auth-error">{importError}</p>}
+
+            {importPreview && (
+              <div className="schema-preview">
+                <strong>Pré-visualização:</strong> {importPreview.length} molde(s)
+              </div>
+            )}
+
+            <button type="submit" disabled={!importPreview || !importSystemId || importing}>
+              {importing ? 'Importando…' : 'Importar'}
+            </button>
+          </form>
+        )}
+      </section>
 
       <section className="system-import">
         <div className="section-head-row">
@@ -397,22 +538,52 @@ export function Bestiary() {
       <section>
         <div className="section-head-row">
           <h2>Moldes salvos</h2>
-          {systems.length > 1 && (
-            <select value={filterSystemId} onChange={(e) => setFilterSystemId(e.target.value)}>
-              <option value="">Todos os sistemas</option>
-              {systems.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          )}
+          <div className="map-controls">
+            {visibleTemplates.length > 0 && (
+              <button
+                className="link-btn"
+                onClick={() =>
+                  downloadJson(
+                    'bestiario.json',
+                    visibleTemplates.map((t) => ({
+                      name: t.name,
+                      isBoss: t.is_boss,
+                      sheetData: t.sheet_data,
+                      abilities: t.abilities,
+                      items: t.items,
+                      notes: t.notes ?? undefined,
+                    }))
+                  )
+                }
+              >
+                Baixar JSON
+              </button>
+            )}
+            <input
+              placeholder="Buscar por nome…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="list-search-input"
+            />
+            {systems.length > 1 && (
+              <select value={filterSystemId} onChange={(e) => setFilterSystemId(e.target.value)}>
+                <option value="">Todos os sistemas</option>
+                {systems.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
 
         {loading ? (
           <p className="muted">Carregando…</p>
         ) : visibleTemplates.length === 0 ? (
-          <p className="muted">Nenhum molde ainda. Crie um acima.</p>
+          <p className="muted">
+            {templates.length === 0 ? 'Nenhum molde ainda. Crie um acima.' : 'Nenhum molde corresponde à busca/filtro.'}
+          </p>
         ) : (
           <ul className="system-list">
             {visibleTemplates.map((t) => (

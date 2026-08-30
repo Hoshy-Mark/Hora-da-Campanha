@@ -15,6 +15,7 @@ import { ActivityFeed } from '../components/ActivityFeed';
 import { logActivity } from '../lib/activity';
 import { useOnlineUserIds } from '../lib/usePresence';
 import { useToast } from '../context/ToastContext';
+import { downloadJson } from '../lib/download';
 
 interface Member {
   user_id: string;
@@ -70,6 +71,7 @@ export function CampaignRoom() {
   const [templateId, setTemplateId] = useState('');
   const [templateQty, setTemplateQty] = useState(1);
   const [instantiating, setInstantiating] = useState(false);
+  const [exportingBackup, setExportingBackup] = useState(false);
 
   const myRole = members.find((m) => m.user_id === user?.id)?.role;
   const isGm = myRole === 'gm';
@@ -393,6 +395,79 @@ export function CampaignRoom() {
     else showToast(`${name} foi removido(a) da mesa.`, 'success');
   }
 
+  // Backup somente-leitura da campanha inteira, pra download local — sem
+  // fluxo de "restaurar" simétrico, porque isso exigiria remapear IDs e
+  // reenviar assets de imagem pro Storage (mapas-imagem só levam
+  // nome/metadados aqui, sem os bytes da imagem).
+  async function handleExportBackup() {
+    if (!campaignId || !campaign) return;
+    setExportingBackup(true);
+
+    const [
+      { data: abilitiesData },
+      { data: itemsData },
+      { data: secretsData },
+      { data: mapsData },
+      { data: notesData },
+      { data: handoutsData },
+    ] = await Promise.all([
+      supabase
+        .from('character_abilities')
+        .select('character_id, name, category, cost, tier, description')
+        .eq('campaign_id', campaignId),
+      supabase
+        .from('inventory_items')
+        .select('character_id, name, description, quantity')
+        .eq('campaign_id', campaignId),
+      supabase.from('character_secrets').select('character_id, title, content').eq('campaign_id', campaignId),
+      supabase.from('maps').select('name, kind, tile_data').eq('campaign_id', campaignId),
+      supabase.from('gm_notes').select('title, content').eq('campaign_id', campaignId),
+      supabase.from('handouts').select('title, content').eq('campaign_id', campaignId),
+    ]);
+
+    type Linked<T> = T & { character_id: string | null };
+    const abilities = (abilitiesData ?? []) as unknown as Linked<{
+      name: string;
+      category: string | null;
+      cost: string | null;
+      tier: string | null;
+      description: string | null;
+    }>[];
+    const items = (itemsData ?? []) as unknown as Linked<{
+      name: string;
+      description: string | null;
+      quantity: number;
+    }>[];
+    const secrets = (secretsData ?? []) as unknown as Linked<{ title: string; content: string }>[];
+
+    const backup = {
+      name: campaign.name,
+      exportedAt: new Date().toISOString(),
+      gameSystem: campaign.game_systems
+        ? { name: campaign.game_systems.name, schema: campaign.game_systems.schema }
+        : null,
+      characters: characters.map((c) => ({
+        name: c.name,
+        isNpc: c.is_npc,
+        sheetData: c.sheet_data,
+        abilities: abilities.filter((a) => a.character_id === c.id),
+        items: items.filter((it) => it.character_id === c.id),
+        secrets: secrets.filter((s) => s.character_id === c.id),
+      })),
+      maps: ((mapsData ?? []) as unknown as { name: string; kind: string; tile_data: unknown }[]).map((m) => ({
+        name: m.name,
+        kind: m.kind,
+        tileData: m.kind === 'tilemap' ? m.tile_data : undefined,
+      })),
+      gmNotes: notesData ?? [],
+      handouts: handoutsData ?? [],
+    };
+
+    setExportingBackup(false);
+    downloadJson(`${campaign.name}.backup.json`, backup);
+    showToast('Backup gerado (só leitura — não há como reimportar uma campanha inteira).', 'success');
+  }
+
   if (loadError) return <p className="auth-error">{loadError}</p>;
   if (!campaign) return <p className="muted">Carregando campanha…</p>;
 
@@ -405,6 +480,16 @@ export function CampaignRoom() {
         <h1>{campaign.name}</h1>
         {campaign.game_systems && <span className="system-badge">{campaign.game_systems.name}</span>}
         {isGm && <span className="invite-hint">Convite: {campaign.invite_code}</span>}
+        {isGm && (
+          <button
+            className="link-btn"
+            disabled={exportingBackup}
+            onClick={handleExportBackup}
+            title="Backup somente-leitura: personagens, fichas, mapas, notas e handouts. Não existe importar de volta."
+          >
+            {exportingBackup ? 'Gerando…' : 'Baixar backup (JSON)'}
+          </button>
+        )}
       </header>
 
       <div className="room-layout">

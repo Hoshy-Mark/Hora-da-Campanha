@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { parseCatalogJson, type CatalogEntryInput } from '../types/catalog';
+import { downloadJson } from '../lib/download';
 import bladeStrandsExample from '../examples/blade-strands.catalog.json?raw';
 import dnd5eExample from '../examples/dnd5e.catalog.json?raw';
 
@@ -36,6 +37,7 @@ export function Catalog() {
   const [loading, setLoading] = useState(true);
   const [filterSystemId, setFilterSystemId] = useState('');
   const [filterKind, setFilterKind] = useState<'' | 'item' | 'ability'>('');
+  const [search, setSearch] = useState('');
 
   const [systemId, setSystemId] = useState('');
   const [rawJson, setRawJson] = useState('');
@@ -160,8 +162,12 @@ export function Catalog() {
   }
 
   const systemNameById = new Map(systems.map((s) => [s.id, s.name]));
+  const normalizedSearch = search.trim().toLowerCase();
   const visibleEntries = entries.filter(
-    (e) => (!filterSystemId || e.game_system_id === filterSystemId) && (!filterKind || e.kind === filterKind)
+    (e) =>
+      (!filterSystemId || e.game_system_id === filterSystemId) &&
+      (!filterKind || e.kind === filterKind) &&
+      (!normalizedSearch || e.name.toLowerCase().includes(normalizedSearch))
   );
 
   return (
@@ -234,6 +240,33 @@ export function Catalog() {
         <div className="section-head-row">
           <h2>Entradas salvas</h2>
           <div className="map-controls">
+            {visibleEntries.length > 0 && (
+              <button
+                className="link-btn"
+                onClick={() =>
+                  downloadJson(
+                    'catalogo.json',
+                    visibleEntries.map((e) => ({
+                      kind: e.kind,
+                      name: e.name,
+                      category: e.category ?? undefined,
+                      cost: e.cost ?? undefined,
+                      tier: e.tier ?? undefined,
+                      description: e.description ?? undefined,
+                      defaultQuantity: e.default_quantity ?? undefined,
+                    }))
+                  )
+                }
+              >
+                Baixar JSON
+              </button>
+            )}
+            <input
+              placeholder="Buscar por nome…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="list-search-input"
+            />
             <select value={filterKind} onChange={(e) => setFilterKind(e.target.value as '' | 'item' | 'ability')}>
               <option value="">Todos os tipos</option>
               <option value="ability">Habilidades</option>
@@ -255,7 +288,11 @@ export function Catalog() {
         {loading ? (
           <p className="muted">Carregando…</p>
         ) : visibleEntries.length === 0 ? (
-          <p className="muted">Nenhuma entrada ainda. Importe um JSON acima (ou carregue um dos exemplos).</p>
+          <p className="muted">
+            {entries.length === 0
+              ? 'Nenhuma entrada ainda. Importe um JSON acima (ou carregue um dos exemplos).'
+              : 'Nenhuma entrada corresponde à busca/filtro.'}
+          </p>
         ) : (
           <ul className="system-list">
             {visibleEntries.map((e) => (
