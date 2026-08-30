@@ -34,6 +34,7 @@ interface Props {
   canMove: boolean;
   isGm: boolean;
   isCurrentTurn: boolean;
+  isDefeated: boolean;
   boardRef: React.RefObject<HTMLDivElement | null>;
   gridSnap: GridSnap | null;
   avatarUrl: string | null;
@@ -47,7 +48,7 @@ function snapToCellCenter(pct: number, cellCount: number) {
   return (idx + 0.5) * cellPct;
 }
 
-export function MapToken({ token, canMove, isGm, isCurrentTurn, boardRef, gridSnap, avatarUrl, onMove, onOpenInfo }: Props) {
+export function MapToken({ token, canMove, isGm, isCurrentTurn, isDefeated, boardRef, gridSnap, avatarUrl, onMove, onOpenInfo }: Props) {
   const dragging = useRef(false);
   // Distingue um clique (abre o popover de info) de um arrastar (move o
   // token) — sem isso, um token não-arrastável (canMove=false) nunca
@@ -104,12 +105,12 @@ export function MapToken({ token, canMove, isGm, isCurrentTurn, boardRef, gridSn
 
   return (
     <div
-      className={`map-token ${canMove ? 'draggable' : ''} ${!token.visible_to_player ? 'hidden-token' : ''} ${isCurrentTurn ? 'current-turn-token' : ''}`}
+      className={`map-token ${canMove ? 'draggable' : ''} ${!token.visible_to_player ? 'hidden-token' : ''} ${isCurrentTurn ? 'current-turn-token' : ''} ${isDefeated ? 'defeated-token' : ''}`}
       style={{ left: `${token.pos_x}%`, top: `${token.pos_y}%`, borderColor: color }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      title={`${token.label}${token.status_effects.length ? ` (${token.status_effects.join(', ')})` : ''}${!token.visible_to_player && isGm ? ' (oculto do jogador)' : ''}`}
+      title={`${token.label}${token.status_effects.length ? ` (${token.status_effects.join(', ')})` : ''}${!token.visible_to_player && isGm ? ' (oculto do jogador)' : ''}${isDefeated ? ' — derrotado' : ''}`}
     >
       {token.status_effects.length > 0 && (
         <span className="map-token-statuses">

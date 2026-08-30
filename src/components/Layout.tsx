@@ -21,6 +21,9 @@ export function Layout() {
           <NavLink to="/catalog" className={({ isActive }) => (isActive ? 'active' : '')}>
             Catálogo
           </NavLink>
+          <NavLink to="/roll-tables" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Tabelas
+          </NavLink>
         </nav>
         <div className="sidebar-footer">
           <span className="sidebar-user muted">{user?.email}</span>

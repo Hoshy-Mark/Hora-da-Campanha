@@ -13,6 +13,7 @@ import { Handouts } from '../components/Handouts';
 import { DiceRoller } from '../components/DiceRoller';
 import { ActivityFeed } from '../components/ActivityFeed';
 import { QuestTracker } from '../components/QuestTracker';
+import { RollTableWidget } from '../components/RollTableWidget';
 import { logActivity } from '../lib/activity';
 import { useOnlineUserIds } from '../lib/usePresence';
 import { useToast } from '../context/ToastContext';
@@ -73,6 +74,8 @@ export function CampaignRoom() {
   const [templateId, setTemplateId] = useState('');
   const [templateQty, setTemplateQty] = useState(1);
   const [instantiating, setInstantiating] = useState(false);
+  const [createTokenOnInstantiate, setCreateTokenOnInstantiate] = useState(true);
+  const [tokenizedCharacterIds, setTokenizedCharacterIds] = useState<Set<string>>(new Set());
   const [exportingBackup, setExportingBackup] = useState(false);
 
   const myRole = members.find((m) => m.user_id === user?.id)?.role;
@@ -194,6 +197,41 @@ export function CampaignRoom() {
     };
   }, [isGm, user, campaign?.game_system_id]);
 
+  // Só pra alimentar a tag "Sem token no mapa" no card de cada
+  // personagem — não precisa dos outros campos do token, só quem já tem
+  // um no mapa atualmente selecionado.
+  useEffect(() => {
+    const mapId = campaign?.current_map_id;
+    if (!mapId) {
+      setTokenizedCharacterIds(new Set());
+      return;
+    }
+    let cancelled = false;
+
+    async function load() {
+      const { data } = await supabase.from('map_tokens').select('character_id').eq('map_id', mapId!);
+      if (!cancelled) {
+        setTokenizedCharacterIds(
+          new Set((data ?? []).map((t) => t.character_id).filter((id): id is string => !!id))
+        );
+      }
+    }
+
+    load();
+
+    const channel = supabase
+      .channel(`map-tokens-presence-${mapId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'map_tokens', filter: `map_id=eq.${mapId}` }, () =>
+        load()
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [campaign?.current_map_id]);
+
   // Avisa o jogador quando algo vira visível pra ele enquanto está numa
   // aba diferente (ex: olhando o Mapa quando o Mestre revela um item na
   // Ficha) — sem isto a revelação passa em branco até ele voltar pra lá
@@ -211,7 +249,7 @@ export function CampaignRoom() {
       { table: 'character_abilities', nameField: 'name', kind: 'Habilidade' },
       { table: 'inventory_items', nameField: 'name', kind: 'Item' },
       { table: 'handouts', nameField: 'title', kind: 'Handout' },
-      { table: 'map_tokens', nameField: 'label', kind: 'Algo' },
+      { table: 'map_tokens', nameField: 'label', kind: 'Token' },
       { table: 'initiative_entries', nameField: 'label', kind: 'Combatente' },
     ];
 
@@ -320,6 +358,23 @@ export function CampaignRoom() {
             visible_to_player: false,
           }))
         );
+      }
+
+      if (createTokenOnInstantiate && campaign?.current_map_id) {
+        // Escalona a posição de instâncias múltiplas pra não nascerem
+        // todas empilhadas exatamente no mesmo ponto — o Mestre ainda
+        // arrasta pra ajustar depois.
+        await supabase.from('map_tokens').insert({
+          map_id: campaign.current_map_id,
+          campaign_id: campaignId,
+          character_id: character.id,
+          label: name,
+          token_type: 'enemy',
+          image_path: character.avatar_path,
+          pos_x: Math.min(90, 50 + i * 4),
+          pos_y: Math.min(90, 50 + i * 4),
+          visible_to_player: false,
+        });
       }
     }
 
@@ -583,6 +638,22 @@ export function CampaignRoom() {
                 <button type="button" disabled={!templateId || instantiating} onClick={handleInstantiateTemplate}>
                   {templateQty > 1 ? `+ Instanciar x${templateQty}` : '+ Instanciar'}
                 </button>
+                <label
+                  className="checkbox-label"
+                  title={
+                    campaign.current_map_id
+                      ? 'Cria um token pra cada instância no mapa selecionado agora'
+                      : 'Selecione um mapa na aba Mapa pra poder criar o token junto'
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={createTokenOnInstantiate}
+                    disabled={!campaign.current_map_id}
+                    onChange={(e) => setCreateTokenOnInstantiate(e.target.checked)}
+                  />
+                  Criar token no mapa atual
+                </label>
               </div>
             )}
 
@@ -605,6 +676,7 @@ export function CampaignRoom() {
                     onDuplicate={isGm ? () => handleDuplicateCharacter(c) : undefined}
                     players={isGm ? playerMembers.map((m) => ({ user_id: m.user_id, name: m.profiles?.display_name ?? m.user_id })) : undefined}
                     onAssignOwner={isGm ? (ownerId) => handleAssignOwner(c.id, ownerId) : undefined}
+                    missingTokenOnMap={isGm && !!campaign.current_map_id && !tokenizedCharacterIds.has(c.id)}
                   />
                 ))}
               </div>
@@ -612,6 +684,7 @@ export function CampaignRoom() {
           </section>
 
           <QuestTracker campaignId={campaign.id} isGm={isGm} />
+          {isGm && <RollTableWidget campaignId={campaign.id} ownerId={campaign.gm_id} />}
           <DiceRoller campaignId={campaign.id} myUserId={user?.id} />
           <ActivityFeed campaignId={campaign.id} />
         </div>

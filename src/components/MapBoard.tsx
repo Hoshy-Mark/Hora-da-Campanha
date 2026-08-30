@@ -577,14 +577,16 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     e.preventDefault();
     if (!currentMapId || (!newTokenLabel.trim() && !newTokenCharacterId)) return;
 
-    let imagePath: string | null = null;
+    const linkedChar = characters.find((c) => c.id === newTokenCharacterId);
+    // Sem upload novo, reaproveita o avatar que o personagem já tem (se
+    // tiver) em vez de obrigar o Mestre a subir a mesma imagem de novo.
+    let imagePath: string | null = linkedChar?.avatar_path ?? null;
     const avatarFile = newTokenAvatarRef.current?.files?.[0];
     if (avatarFile) {
       imagePath = await uploadTokenAvatar(avatarFile);
       if (!imagePath) return;
     }
 
-    const linkedChar = characters.find((c) => c.id === newTokenCharacterId);
     const { data, error } = await supabase
       .from('map_tokens')
       .insert({
@@ -701,6 +703,9 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   const visibleInitiative = initiativeEntries.filter((e) => e.visible_to_player || effectiveIsGm);
   const initiativeInCombat = initiativeEntries.some((e) => e.is_current);
   const currentTurnCharacterId = initiativeEntries.find((e) => e.is_current)?.character_id ?? null;
+  const defeatedCharacterIds = new Set(
+    initiativeEntries.filter((e) => e.is_defeated && e.character_id).map((e) => e.character_id as string)
+  );
   const popoverToken = tokens.find((t) => t.id === openTokenPopoverId) ?? null;
   const popoverCharacter = popoverToken ? characters.find((c) => c.id === popoverToken.character_id) ?? null : null;
 
@@ -1130,6 +1135,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                     canMove={canMoveToken(t)}
                     isGm={effectiveIsGm}
                     isCurrentTurn={!!t.character_id && t.character_id === currentTurnCharacterId}
+                    isDefeated={!!t.character_id && defeatedCharacterIds.has(t.character_id)}
                     boardRef={boardRef}
                     gridSnap={
                       currentMap.kind === 'tilemap' && currentMap.tile_data

@@ -537,6 +537,28 @@ create policy "quests_delete_gm_only"
   using (public.is_campaign_gm(campaign_id));
 
 -- =====================================================================
+-- ROLL_TABLES — tabelas de rolagem aleatória (loot / encontros). Mesmo
+-- padrão owner-scoped de catalog_entries/monster_templates: o Mestre
+-- monta a tabela uma vez e reusa em qualquer mesa. `entries` é um array
+-- de { text, weight } — sorteio ponderado feito no cliente.
+-- =====================================================================
+create table public.roll_tables (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references public.profiles(id) on delete cascade,
+  name text not null,
+  entries jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table public.roll_tables enable row level security;
+
+create policy "roll_tables_owner_all"
+  on public.roll_tables for all
+  to authenticated
+  using (owner_id = auth.uid())
+  with check (owner_id = auth.uid());
+
+-- =====================================================================
 -- INITIATIVE_ENTRIES — rastreador de iniciativa/combate
 -- =====================================================================
 create table public.initiative_entries (
@@ -921,3 +943,4 @@ alter publication supabase_realtime add table public.catalog_entries;
 alter publication supabase_realtime add table public.tile_definitions;
 alter publication supabase_realtime add table public.activity_log;
 alter publication supabase_realtime add table public.quests;
+alter publication supabase_realtime add table public.roll_tables;

@@ -7,6 +7,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Systems } from './pages/Systems';
 import { Bestiary } from './pages/Bestiary';
 import { Catalog } from './pages/Catalog';
+import { RollTables } from './pages/RollTables';
 import { CampaignRoom } from './pages/CampaignRoom';
 
 function PrivateRoutes() {
@@ -22,6 +23,7 @@ function PrivateRoutes() {
         <Route path="/systems" element={<Systems />} />
         <Route path="/bestiary" element={<Bestiary />} />
         <Route path="/catalog" element={<Catalog />} />
+        <Route path="/roll-tables" element={<RollTables />} />
         <Route path="/campaign/:id" element={<CampaignRoom />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

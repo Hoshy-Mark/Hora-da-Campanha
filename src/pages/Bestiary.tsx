@@ -33,6 +33,22 @@ interface TemplateRow {
   notes: string | null;
 }
 
+interface CatalogAbility {
+  id: string;
+  name: string;
+  category: string | null;
+  cost: string | null;
+  tier: string | null;
+  description: string | null;
+}
+
+interface CatalogItem {
+  id: string;
+  name: string;
+  description: string | null;
+  default_quantity: number | null;
+}
+
 const emptyAbilityDraft = { name: '', category: '', cost: '', tier: '', description: '' };
 const emptyItemDraft = { name: '', description: '', quantity: '1' };
 
@@ -58,6 +74,10 @@ export function Bestiary() {
   const [abilityDraft, setAbilityDraft] = useState(emptyAbilityDraft);
   const [itemDraft, setItemDraft] = useState(emptyItemDraft);
   const [saving, setSaving] = useState(false);
+  const [catalogAbilities, setCatalogAbilities] = useState<CatalogAbility[]>([]);
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([]);
+  const [catalogAbilityPick, setCatalogAbilityPick] = useState('');
+  const [catalogItemPick, setCatalogItemPick] = useState('');
 
   const [showImport, setShowImport] = useState(false);
   const [importSystemId, setImportSystemId] = useState('');
@@ -117,12 +137,71 @@ export function Bestiary() {
     setItems([]);
     setAbilityDraft(emptyAbilityDraft);
     setItemDraft(emptyItemDraft);
+    setCatalogAbilityPick('');
+    setCatalogItemPick('');
   }
 
   function handlePickSystem(id: string) {
     setSystemId(id);
     const sys = systems.find((s) => s.id === id);
     if (sys) setSheetData(emptySheetData(sys.schema));
+  }
+
+  // Molde reaproveita o mesmo catálogo de habilidades/itens que as fichas
+  // de personagem já usam — evita redigitar algo que já existe cadastrado
+  // pro sistema selecionado.
+  useEffect(() => {
+    if (!systemId) {
+      setCatalogAbilities([]);
+      setCatalogItems([]);
+      return;
+    }
+    let cancelled = false;
+    Promise.all([
+      supabase
+        .from('catalog_entries')
+        .select('id, name, category, cost, tier, description')
+        .eq('game_system_id', systemId)
+        .eq('kind', 'ability')
+        .order('name', { ascending: true }),
+      supabase
+        .from('catalog_entries')
+        .select('id, name, description, default_quantity')
+        .eq('game_system_id', systemId)
+        .eq('kind', 'item')
+        .order('name', { ascending: true }),
+    ]).then(([abilityRes, itemRes]) => {
+      if (cancelled) return;
+      setCatalogAbilities((abilityRes.data ?? []) as unknown as CatalogAbility[]);
+      setCatalogItems((itemRes.data ?? []) as unknown as CatalogItem[]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [systemId]);
+
+  function pickAbilityFromCatalog(id: string) {
+    setCatalogAbilityPick(id);
+    const entry = catalogAbilities.find((c) => c.id === id);
+    if (!entry) return;
+    setAbilityDraft({
+      name: entry.name,
+      category: entry.category ?? '',
+      cost: entry.cost ?? '',
+      tier: entry.tier ?? '',
+      description: entry.description ?? '',
+    });
+  }
+
+  function pickItemFromCatalog(id: string) {
+    setCatalogItemPick(id);
+    const entry = catalogItems.find((c) => c.id === id);
+    if (!entry) return;
+    setItemDraft({
+      name: entry.name,
+      description: entry.description ?? '',
+      quantity: String(entry.default_quantity ?? 1),
+    });
   }
 
   function handleFieldChange(key: string, value: number | string) {
@@ -148,6 +227,7 @@ export function Bestiary() {
       },
     ]);
     setAbilityDraft(emptyAbilityDraft);
+    setCatalogAbilityPick('');
   }
 
   function addItem() {
@@ -161,6 +241,7 @@ export function Bestiary() {
       },
     ]);
     setItemDraft(emptyItemDraft);
+    setCatalogItemPick('');
   }
 
   function startEdit(t: TemplateRow) {
@@ -172,6 +253,8 @@ export function Bestiary() {
     setSheetData(t.sheet_data);
     setAbilities(t.abilities);
     setItems(t.items);
+    setCatalogAbilityPick('');
+    setCatalogItemPick('');
     setShowForm(true);
   }
 
@@ -442,6 +525,16 @@ export function Bestiary() {
             <div className="sheet-card">
               <strong className="sheet-card-title">Habilidades</strong>
               <div className="reveal-form">
+                {catalogAbilities.length > 0 && (
+                  <select value={catalogAbilityPick} onChange={(e) => pickAbilityFromCatalog(e.target.value)}>
+                    <option value="">Do catálogo… (ou digite abaixo)</option>
+                    {catalogAbilities.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <input
                   placeholder="Nome"
                   value={abilityDraft.name}
@@ -505,6 +598,16 @@ export function Bestiary() {
             <div className="sheet-card">
               <strong className="sheet-card-title">Itens</strong>
               <div className="reveal-form">
+                {catalogItems.length > 0 && (
+                  <select value={catalogItemPick} onChange={(e) => pickItemFromCatalog(e.target.value)}>
+                    <option value="">Do catálogo… (ou digite abaixo)</option>
+                    {catalogItems.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <input
                   placeholder="Nome"
                   value={itemDraft.name}

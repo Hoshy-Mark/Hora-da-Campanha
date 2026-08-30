@@ -8,6 +8,7 @@
 import type { SheetData } from './game-system';
 import type { Json } from './json';
 import type { TemplateAbility, TemplateItem } from './monster-template';
+import type { RollEntry } from './roll-table';
 import type { TileMapData } from './tilemap';
 
 type Relationships = { foreignKeyName: string; columns: string[]; isOneToOne?: boolean; referencedRelation: string; referencedColumns: string[] }[];
@@ -261,6 +262,26 @@ export interface Database {
           tier: string | null;
           description: string | null;
           default_quantity: number | null;
+        }>;
+        Relationships: Relationships;
+      };
+      roll_tables: {
+        Row: {
+          id: string;
+          owner_id: string;
+          name: string;
+          entries: RollEntry[];
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          name: string;
+          entries?: RollEntry[];
+        };
+        Update: Partial<{
+          name: string;
+          entries: RollEntry[];
         }>;
         Relationships: Relationships;
       };

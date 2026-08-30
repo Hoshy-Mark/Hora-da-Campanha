@@ -985,6 +985,8 @@ h2 {
 }
 .map-token.hidden-token .map-token-dot { border-style: dashed; opacity: 0.7; }
 .map-token.hidden-token .map-token-label { opacity: 0.7; }
+.map-token.defeated-token { filter: grayscale(0.85); opacity: 0.6; }
+.map-token.defeated-token .map-token-label { text-decoration: line-through; }
 
 .map-token-avatar {
   width: 30px;

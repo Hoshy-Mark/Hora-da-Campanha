@@ -23,6 +23,10 @@ interface Props {
   // sem controle nenhum de atribuição.
   players?: { user_id: string; name: string }[];
   onAssignOwner?: (ownerId: string | null) => void;
+  // true = existe um mapa selecionado e este personagem não tem token
+  // nele ainda. Ausente/false = não mostra nada (ou não há mapa ativo,
+  // ou o personagem já está representado no mapa atual).
+  missingTokenOnMap?: boolean;
 }
 
 export function CharacterCard({
@@ -35,6 +39,7 @@ export function CharacterCard({
   onDuplicate,
   players,
   onAssignOwner,
+  missingTokenOnMap,
 }: Props) {
   const barResources = schema.resources.filter((r) => r.type === 'bar');
   const avatarUrl = character.avatar_path
@@ -51,6 +56,11 @@ export function CharacterCard({
             <span className="npc-badge">NPC</span>
           ) : (
             <span className="muted owner-hint">{ownerName ?? '—'}</span>
+          )}
+          {missingTokenOnMap && (
+            <span className="tag hidden-tag" title="Este personagem não tem token no mapa selecionado agora">
+              Sem token no mapa
+            </span>
           )}
         </div>
         <div className="character-card-mini-bars">
