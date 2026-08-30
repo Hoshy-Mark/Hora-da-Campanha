@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
-import { debounce } from '../lib/debounce';
+import { debounceWithMaxWait } from '../lib/debounce';
 import { useToast } from '../context/ToastContext';
 import { MapToken, type TokenRow } from './MapToken';
 import { TileMapBoard } from './TileMapBoard';
@@ -461,11 +461,11 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   }
 
   const persistTiles = useRef(
-    debounce(async (mapId: string, next: TileMapData) => {
+    debounceWithMaxWait(async (mapId: string, next: TileMapData) => {
       const { error } = await supabase.from('maps').update({ tile_data: next }).eq('id', mapId);
       if (dirtyTileMapId.current === mapId) dirtyTileMapId.current = null;
       if (error) showToast(error.message, 'error');
-    }, 400)
+    }, 400, 1500)
   ).current;
 
   function handleTileChange(mapId: string, next: TileMapData) {
@@ -473,6 +473,21 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     setMaps((prev) => prev.map((m) => (m.id === mapId ? { ...m, tile_data: next } : m)));
     persistTiles(mapId, next);
   }
+
+  // Garante que uma pintura recém-feita não fique só na memória: troca de
+  // mapa, saída da aba (MapBoard desmonta) ou fechar a aba força o save
+  // pendente na hora em vez de confiar só no debounce (que sozinho podia
+  // perder a última mudança se nenhum desses acontecesse antes do reload).
+  useEffect(() => {
+    return () => {
+      persistTiles.flush();
+    };
+  }, [currentMapId, persistTiles]);
+
+  useEffect(() => {
+    window.addEventListener('beforeunload', persistTiles.flush);
+    return () => window.removeEventListener('beforeunload', persistTiles.flush);
+  }, [persistTiles]);
 
   function handleEnableFog() {
     if (!currentMap?.tile_data) return;
