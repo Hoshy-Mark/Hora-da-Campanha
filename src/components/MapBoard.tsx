@@ -10,6 +10,7 @@ import {
   customTileKey,
   emptyFog,
   emptyTileMap,
+  revealFogAroundPosition,
   type CustomTileRow,
   type PaintTool,
   type TileMapData,
@@ -617,6 +618,15 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     setTokens((prev) => prev.map((t) => (t.id === id ? { ...t, pos_x, pos_y } : t)));
     const { error } = await supabase.from('map_tokens').update({ pos_x, pos_y }).eq('id', id);
     if (error) showToast(error.message, 'error');
+
+    // Linha de visão simplificada: mover um token de jogador revela a
+    // névoa num raio ao redor da nova posição — poupa o Mestre de ter que
+    // pintar manualmente célula por célula conforme o grupo explora.
+    const token = tokens.find((t) => t.id === id);
+    if (token?.token_type === 'player' && currentMap?.kind === 'tilemap' && currentMap.tile_data) {
+      const nextTileData = revealFogAroundPosition(currentMap.tile_data, pos_x, pos_y);
+      if (nextTileData) handleTileChange(currentMap.id, nextTileData);
+    }
   }
 
   async function toggleTokenVisible(t: TokenRow) {
@@ -956,6 +966,10 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                   <button type="button" className="link-btn danger" onClick={handleDisableFog}>
                     Desativar névoa
                   </button>
+                  <p className="muted" style={{ margin: 0, flexBasis: '100%' }}>
+                    Mover um token de jogador revela a névoa automaticamente ao redor dele — use o pincel acima só
+                    pra revelar áreas que os personagens ainda não visitaram (ex: o que se vê de longe).
+                  </p>
                 </div>
               )}
             </>

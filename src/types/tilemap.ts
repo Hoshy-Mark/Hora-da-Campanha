@@ -125,6 +125,49 @@ export function emptyFog(cols: number, rows: number, revealed: boolean): boolean
   return Array(cols * rows).fill(revealed);
 }
 
+// Raio de "visão" (em células) revelado automaticamente ao redor de um
+// token de jogador quando ele se move sobre um mapa de tiles com névoa
+// ativa — simplificação de linha de visão (círculo, sem considerar
+// paredes bloqueando) em vez de raycasting de verdade.
+export const AUTO_VISION_RADIUS = 3;
+
+// Recebe a posição do token em porcentagem (0-100) da imagem/grid — o
+// mesmo formato de map_tokens.pos_x/pos_y — e devolve o tile_data com a
+// névoa ao redor revelada, ou `null` se não havia névoa pra revelar (já
+// revelado, ou mapa sem névoa ativa).
+export function revealFogAroundPosition(
+  data: TileMapData,
+  posXPercent: number,
+  posYPercent: number,
+  radius = AUTO_VISION_RADIUS
+): TileMapData | null {
+  if (!data.fog) return null;
+  const { cols, rows, fog } = data;
+  const col = Math.min(cols - 1, Math.max(0, Math.floor((posXPercent / 100) * cols)));
+  const row = Math.min(rows - 1, Math.max(0, Math.floor((posYPercent / 100) * rows)));
+
+  let changed = false;
+  const nextFog = fog.slice();
+  const rMin = Math.max(0, row - radius);
+  const rMax = Math.min(rows - 1, row + radius);
+  const cMin = Math.max(0, col - radius);
+  const cMax = Math.min(cols - 1, col + radius);
+  for (let r = rMin; r <= rMax; r++) {
+    for (let c = cMin; c <= cMax; c++) {
+      const dx = c - col;
+      const dy = r - row;
+      if (dx * dx + dy * dy > radius * radius) continue;
+      const idx = r * cols + c;
+      if (!nextFog[idx]) {
+        nextFog[idx] = true;
+        changed = true;
+      }
+    }
+  }
+
+  return changed ? { ...data, fog: nextFog } : null;
+}
+
 export type PaintTool =
   | { mode: 'terrain'; tile: string }
   | { mode: 'fog'; reveal: boolean }
