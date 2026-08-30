@@ -16,6 +16,15 @@ interface Props {
 // cima de qualquer um dos dois sem precisar saber qual é.
 export function TileMapBoard({ data, editable, tool, onChange }: Props) {
   const painting = useRef(false);
+  // Espelha data.tiles mas é atualizado de forma síncrona a cada pintura,
+  // sem esperar o próximo render — um arrastar rápido dispara vários
+  // pointerenter antes de React re-renderizar com o `data` novo, e ler
+  // só a prop faria cada pintura partir do mesmo array velho (a última
+  // vencendo, apagando as anteriores).
+  const tilesRef = useRef(data.tiles);
+  useEffect(() => {
+    tilesRef.current = data.tiles;
+  }, [data.tiles]);
 
   useEffect(() => {
     function stopPainting() {
@@ -26,9 +35,10 @@ export function TileMapBoard({ data, editable, tool, onChange }: Props) {
   }, []);
 
   function paint(index: number) {
-    if (!editable || data.tiles[index] === tool) return;
-    const tiles = [...data.tiles];
+    if (!editable || tilesRef.current[index] === tool) return;
+    const tiles = [...tilesRef.current];
     tiles[index] = tool;
+    tilesRef.current = tiles;
     onChange({ ...data, tiles });
   }
 

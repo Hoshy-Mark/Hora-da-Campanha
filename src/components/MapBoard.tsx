@@ -57,6 +57,13 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   const [newTokenType, setNewTokenType] = useState<TokenRow['token_type']>('enemy');
   const [newTokenCharacterId, setNewTokenCharacterId] = useState('');
 
+  // Enquanto uma pintura de tile ainda não foi persistida (debounce de
+  // handleTileChange), o eco do Realtime pra esse mesmo mapa não pode
+  // pisar em cima do tile_data local — senão um refetch que chega antes
+  // do UPDATE local terminar de gravar reverte a pintura na tela (mesma
+  // classe de bug do dirtyRef em CharacterSheet, aqui pro lado do mapa).
+  const dirtyTileMapId = useRef<string | null>(null);
+
   const currentMap = maps.find((m) => m.id === currentMapId) ?? null;
 
   useEffect(() => {
@@ -75,8 +82,24 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
 
     const channel = supabase
       .channel(`maps-${campaignId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'maps', filter: `campaign_id=eq.${campaignId}` }, () =>
-        loadMaps()
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'maps', filter: `campaign_id=eq.${campaignId}` },
+        (payload) => {
+          setMaps((prev) => {
+            if (payload.eventType === 'DELETE') {
+              const oldId = (payload.old as { id: string }).id;
+              return prev.filter((m) => m.id !== oldId);
+            }
+            const row = payload.new as unknown as MapRow;
+            if (dirtyTileMapId.current === row.id) return prev;
+            const idx = prev.findIndex((m) => m.id === row.id);
+            if (idx === -1) return [...prev, row];
+            const copy = [...prev];
+            copy[idx] = row;
+            return copy;
+          });
+        }
       )
       .subscribe();
 
@@ -207,11 +230,13 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   const persistTiles = useRef(
     debounce(async (mapId: string, next: TileMapData) => {
       const { error } = await supabase.from('maps').update({ tile_data: next }).eq('id', mapId);
+      if (dirtyTileMapId.current === mapId) dirtyTileMapId.current = null;
       if (error) showToast(error.message, 'error');
     }, 400)
   ).current;
 
   function handleTileChange(mapId: string, next: TileMapData) {
+    dirtyTileMapId.current = mapId;
     setMaps((prev) => prev.map((m) => (m.id === mapId ? { ...m, tile_data: next } : m)));
     persistTiles(mapId, next);
   }
