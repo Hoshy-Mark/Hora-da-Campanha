@@ -37,7 +37,14 @@ body {
 }
 
 button { cursor: pointer; font-family: inherit; }
-input, select, textarea { font-family: inherit; }
+/* min-width:0 — sem isso, o tamanho intrínseco padrão do navegador pra
+   um <input>/<select> (~170-220px) vence o `flex:1`/`minmax()` de quem
+   contém, e o campo transborda por cima da célula vizinha (grid/flex só
+   encolhe um item até o "min-content" dele, que por padrão é esse
+   tamanho intrínseco, não zero). Ficou visível de vez nas grades densas
+   de campos curtos do Blade Strands, mas o mesmo bug existia em
+   qualquer grid/flex apertado o bastante em todo o app. */
+input, select, textarea { font-family: inherit; min-width: 0; }
 
 h1, h2, h3 { line-height: 1.25; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
 h1 { font-size: 26px; }
@@ -526,7 +533,7 @@ h2 {
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 14px 18px;
 }
-.sheet-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted); font-weight: 500; }
+.sheet-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted); font-weight: 500; min-width: 0; }
 .sheet-field input, .sheet-field select, .sheet-field textarea {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -552,7 +559,7 @@ h2 {
 }
 .sheet-field small.mono { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; }
 
-.computed-field-row { display: flex; align-items: center; gap: 6px; }
+.computed-field-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .computed-field-row .computed-field,
 .computed-field-row input { flex: 1; }
 .field-roll-btn {
