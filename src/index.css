@@ -336,6 +336,8 @@ code, .mono { font-family: 'JetBrains Mono', 'Consolas', monospace; }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 /* ---------- Campaign room ---------- */
@@ -351,7 +353,7 @@ code, .mono { font-family: 'JetBrains Mono', 'Consolas', monospace; }
   border-radius: 999px;
 }
 
-.section-head-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+.section-head-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 0.75rem; }
 
 h2 {
   text-transform: uppercase;
@@ -618,7 +620,7 @@ h2 {
   padding: 12px;
   margin-bottom: 12px;
 }
-.reveal-form-row { display: flex; gap: 8px; }
+.reveal-form-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .reveal-form input, .reveal-form textarea {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -649,6 +651,7 @@ h2 {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -692,7 +695,14 @@ h2 {
 .reveal-item-actions { display: flex; gap: 10px; flex: none; white-space: nowrap; }
 
 /* ---------- Ficha / Mapa: abas do painel principal ---------- */
-.view-tabs { display: flex; gap: 4px; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+.view-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .view-tabs button {
   background: none;
   border: none;
@@ -702,6 +712,8 @@ h2 {
   padding: 8px 4px;
   margin-right: 20px;
   border-bottom: 2px solid transparent;
+  flex: none;
+  white-space: nowrap;
 }
 .view-tabs button:hover { color: var(--text); }
 .view-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
@@ -709,7 +721,7 @@ h2 {
 /* ---------- Mapa tático ---------- */
 .map-board-wrap { display: flex; flex-direction: column; gap: 1rem; }
 
-.map-controls { display: flex; align-items: center; gap: 12px; }
+.map-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .map-controls select {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -988,7 +1000,7 @@ h2 {
 
 /* ---------- Combate / Iniciativa ---------- */
 .combat-tracker { display: flex; flex-direction: column; gap: 12px; }
-.combat-controls { display: flex; gap: 14px; }
+.combat-controls { display: flex; gap: 14px; flex-wrap: wrap; }
 .combat-add-row { align-items: center; margin-bottom: 4px; }
 .combat-add-row select, .combat-add-row input:not(.qty-input) { flex: 1; }
 .combat-hint { margin: -6px 0 0; font-size: 12.5px; }
@@ -1161,7 +1173,7 @@ h2 {
     gap: 1.5rem;
   }
   .sidebar-logo { margin-bottom: 0; }
-  .sidebar-nav { flex-direction: row; flex: 1; }
+  .sidebar-nav { flex-direction: row; flex: 1; flex-wrap: wrap; row-gap: 2px; min-width: 0; }
   .sidebar-footer { flex-direction: row; align-items: center; border-top: none; padding: 0; gap: 10px; }
   .sidebar-user { display: none; }
 

@@ -619,12 +619,13 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     const { error } = await supabase.from('map_tokens').update({ pos_x, pos_y }).eq('id', id);
     if (error) showToast(error.message, 'error');
 
-    // Linha de visão simplificada: mover um token de jogador revela a
-    // névoa num raio ao redor da nova posição — poupa o Mestre de ter que
-    // pintar manualmente célula por célula conforme o grupo explora.
+    // Linha de visão: mover um token de jogador revela a névoa num raio ao
+    // redor da nova posição, respeitando parede/porta fechada no caminho
+    // (raycasting) — poupa o Mestre de ter que pintar manualmente célula
+    // por célula conforme o grupo explora.
     const token = tokens.find((t) => t.id === id);
     if (token?.token_type === 'player' && currentMap?.kind === 'tilemap' && currentMap.tile_data) {
-      const nextTileData = revealFogAroundPosition(currentMap.tile_data, pos_x, pos_y);
+      const nextTileData = revealFogAroundPosition(currentMap.tile_data, pos_x, pos_y, mapCustomTiles);
       if (nextTileData) handleTileChange(currentMap.id, nextTileData);
     }
   }
@@ -967,8 +968,9 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                     Desativar névoa
                   </button>
                   <p className="muted" style={{ margin: 0, flexBasis: '100%' }}>
-                    Mover um token de jogador revela a névoa automaticamente ao redor dele — use o pincel acima só
-                    pra revelar áreas que os personagens ainda não visitaram (ex: o que se vê de longe).
+                    Mover um token de jogador revela a névoa automaticamente ao redor dele, respeitando parede e
+                    porta fechada no caminho (não atravessa). Use o pincel acima só pra revelar áreas que os
+                    personagens ainda não visitaram (ex: o que se vê de longe).
                   </p>
                 </div>
               )}

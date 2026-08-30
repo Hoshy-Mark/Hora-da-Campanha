@@ -127,22 +127,91 @@ export function emptyFog(cols: number, rows: number, revealed: boolean): boolean
 
 // Raio de "visão" (em células) revelado automaticamente ao redor de um
 // token de jogador quando ele se move sobre um mapa de tiles com névoa
-// ativa — simplificação de linha de visão (círculo, sem considerar
-// paredes bloqueando) em vez de raycasting de verdade.
+// ativa.
 export const AUTO_VISION_RADIUS = 3;
+
+// Categoria que marca um tile como "parede" pra fins de linha de visão —
+// tanto de fábrica quanto customizado (o Mestre escolhe a categoria ao
+// criar um tile próprio, então marcar um como "Parede" já basta pra ele
+// bloquear visão igual às paredes de fábrica, sem precisar de nenhuma
+// flag nova no banco).
+const WALL_CATEGORY = 'Parede';
+
+function tileCategoryOf(key: string, customTiles: CustomTileRow[]): string | undefined {
+  const builtin = builtinTile(key);
+  if (builtin) return builtin.category;
+  if (key.startsWith('custom:')) {
+    const id = key.slice('custom:'.length);
+    return customTiles.find((c) => c.id === id)?.category;
+  }
+  return undefined;
+}
+
+// Uma porta fechada bloqueia visão, aberta não — mesmo estado alternável
+// (`tileStates`) já usado pelo modo "Interagir". Qualquer outro tile de
+// categoria "Parede" bloqueia sempre, independente de estado.
+function tileBlocksVision(key: string, cellIndex: number, tileStates: boolean[] | undefined, customTiles: CustomTileRow[]): boolean {
+  if (key === 'door') return tileStates?.[cellIndex] !== true;
+  return tileCategoryOf(key, customTiles) === WALL_CATEGORY;
+}
+
+// Bresenham entre duas células — devolve false assim que a linha passa
+// por uma célula bloqueadora entre origem e destino (exclusive nas duas
+// pontas: sempre dá pra ver a própria parede que se está encostado nela
+// ou mirando, só não o que está atrás dela).
+function hasClearLine(
+  tiles: string[],
+  cols: number,
+  tileStates: boolean[] | undefined,
+  customTiles: CustomTileRow[],
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number
+): boolean {
+  let x = x0;
+  let y = y0;
+  const dx = Math.abs(x1 - x0);
+  const sx = x0 < x1 ? 1 : -1;
+  const dy = -Math.abs(y1 - y0);
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+
+  while (true) {
+    if (!(x === x0 && y === y0) && !(x === x1 && y === y1)) {
+      const idx = y * cols + x;
+      if (tileBlocksVision(tiles[idx], idx, tileStates, customTiles)) return false;
+    }
+    if (x === x1 && y === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y += sy;
+    }
+  }
+  return true;
+}
 
 // Recebe a posição do token em porcentagem (0-100) da imagem/grid — o
 // mesmo formato de map_tokens.pos_x/pos_y — e devolve o tile_data com a
 // névoa ao redor revelada, ou `null` se não havia névoa pra revelar (já
-// revelado, ou mapa sem névoa ativa).
+// revelado, mapa sem névoa ativa, ou tudo bloqueado por parede). Uma
+// célula dentro do raio só é revelada se existir uma linha reta sem
+// parede/porta fechada no meio até ela — visão de verdade, não um
+// círculo que atravessa qualquer coisa.
 export function revealFogAroundPosition(
   data: TileMapData,
   posXPercent: number,
   posYPercent: number,
+  customTiles: CustomTileRow[] = [],
   radius = AUTO_VISION_RADIUS
 ): TileMapData | null {
   if (!data.fog) return null;
-  const { cols, rows, fog } = data;
+  const { cols, rows, fog, tiles, tileStates } = data;
   const col = Math.min(cols - 1, Math.max(0, Math.floor((posXPercent / 100) * cols)));
   const row = Math.min(rows - 1, Math.max(0, Math.floor((posYPercent / 100) * rows)));
 
@@ -158,10 +227,10 @@ export function revealFogAroundPosition(
       const dy = r - row;
       if (dx * dx + dy * dy > radius * radius) continue;
       const idx = r * cols + c;
-      if (!nextFog[idx]) {
-        nextFog[idx] = true;
-        changed = true;
-      }
+      if (nextFog[idx]) continue;
+      if (!hasClearLine(tiles, cols, tileStates, customTiles, col, row, c, r)) continue;
+      nextFog[idx] = true;
+      changed = true;
     }
   }
 
