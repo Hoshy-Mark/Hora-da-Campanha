@@ -900,27 +900,23 @@ h2 {
 }
 .map-token-popover-statuses { display: flex; flex-wrap: wrap; gap: 6px; }
 
-.map-token-panel-toggle {
+/* Painel flutuante sobre o mapa que Ficha, Combate e Tokens dividem — só
+   um de cada vez (abrir um fecha o outro), então não tem risco de dois
+   se sobreporem não importa o tamanho do mapa/conteúdo. Canto
+   inferior-esquerdo (o popover de clique em token já usa o
+   superior-direito). Os botões que abrem/fecham ficam no cabeçalho do
+   mapa (fluxo normal, não flutuando) pra nunca sobrepor a paleta de
+   terreno — só o painel de conteúdo em si flutua por cima do mapa
+   quando aberto. */
+.map-floating-panel {
   position: absolute;
-  bottom: 12px;
-  right: 12px;
   z-index: 5;
-  background: var(--panel);
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  padding: 8px 16px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-}
-.map-token-panel {
-  position: absolute;
-  bottom: 56px;
-  right: 12px;
-  z-index: 5;
-  width: min(360px, calc(100% - 24px));
-  max-height: calc(100% - 68px);
+  width: min(400px, calc(100% - 24px));
+  max-height: 70vh;
   overflow-y: auto;
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
 }
+.map-panel-bl-panel { bottom: 12px; left: 12px; }
 
 .map-token {
   position: absolute;

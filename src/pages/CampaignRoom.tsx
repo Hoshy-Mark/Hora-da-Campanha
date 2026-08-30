@@ -60,7 +60,7 @@ export function CampaignRoom() {
   const [members, setMembers] = useState<Member[]>([]);
   const [characters, setCharacters] = useState<CharacterRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'sheet' | 'map' | 'combat' | 'handouts' | 'notes'>('sheet');
+  const [activeView, setActiveView] = useState<'sheet' | 'map' | 'combat' | 'handouts' | 'notes'>('map');
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [newCharName, setNewCharName] = useState('');
@@ -650,12 +650,15 @@ export function CampaignRoom() {
               isGm={isGm}
               characters={characters.map((c) => ({
                 id: c.id,
+                campaign_id: c.campaign_id,
                 name: c.name,
                 owner_id: c.owner_id,
                 is_npc: c.is_npc,
                 sheet_data: c.sheet_data,
+                avatar_path: c.avatar_path,
               }))}
               schema={schema}
+              gameSystemId={campaign.game_system_id}
               myUserId={user?.id}
             />
           ) : selected && schema ? (

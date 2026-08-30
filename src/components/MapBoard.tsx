@@ -19,6 +19,8 @@ import { QUICK_STATUS_EFFECTS, iconForStatus } from '../types/status-effects';
 import { logActivity } from '../lib/activity';
 import type { GameSystemSchema, SheetData } from '../types/game-system';
 import { CombatantResources } from './CombatantResources';
+import { CharacterSheet } from './CharacterSheet';
+import { CombatTracker } from './CombatTracker';
 
 interface MapRow {
   id: string;
@@ -31,10 +33,12 @@ interface MapRow {
 
 interface CharacterOption {
   id: string;
+  campaign_id: string;
   name: string;
   owner_id: string | null;
   is_npc: boolean;
   sheet_data: SheetData;
+  avatar_path: string | null;
 }
 
 interface InitiativeEntryLite {
@@ -54,6 +58,7 @@ interface Props {
   isGm: boolean;
   characters: CharacterOption[];
   schema: GameSystemSchema | undefined;
+  gameSystemId: string;
   myUserId: string | undefined;
 }
 
@@ -64,7 +69,7 @@ const TYPE_LABEL: Record<TokenRow['token_type'], string> = {
   other: 'Outro',
 };
 
-export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characters, schema, myUserId }: Props) {
+export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characters, schema, gameSystemId, myUserId }: Props) {
   const { showToast } = useToast();
   const [maps, setMaps] = useState<MapRow[]>([]);
   const [tokens, setTokens] = useState<TokenRow[]>([]);
@@ -100,8 +105,13 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   const [statusEditorTokenId, setStatusEditorTokenId] = useState<string | null>(null);
   const [customStatus, setCustomStatus] = useState('');
   const [previewAsPlayer, setPreviewAsPlayer] = useState(false);
-  const [tokenPanelOpen, setTokenPanelOpen] = useState(false);
   const [openTokenPopoverId, setOpenTokenPopoverId] = useState<string | null>(null);
+  // Ficha, Combate e Tokens dividem o mesmo painel flutuante (só um de
+  // cada vez) — evita ter que calcular posições pra não sobrepor uns aos
+  // outros quando o mapa não ocupa a tela inteira (ex: ao lado da barra
+  // de personagens, num mapa pequeno sem muita altura).
+  const [activeMapPanel, setActiveMapPanel] = useState<'sheet' | 'combat' | 'tokens' | null>(null);
+  const [sheetPanelCharacterId, setSheetPanelCharacterId] = useState('');
   const [initiativeEntries, setInitiativeEntries] = useState<InitiativeEntryLite[]>([]);
   // Toda decisão de RENDERIZAÇÃO do mapa (o que fica visível, quem pode
   // arrastar token, quais controles de edição aparecem) usa isto em vez
@@ -673,6 +683,23 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   const popoverToken = tokens.find((t) => t.id === openTokenPopoverId) ?? null;
   const popoverCharacter = popoverToken ? characters.find((c) => c.id === popoverToken.character_id) ?? null : null;
 
+  // Painel de Ficha do mapa: Mestre escolhe entre todos os personagens da
+  // campanha (jogadores + NPCs/inimigos), jogador só entre os seus
+  // próprios (normalmente um só). Se a seleção guardada não existe mais
+  // na lista disponível (ou nunca foi escolhida), cai pro primeiro —
+  // assim o painel sempre abre com algo pra mostrar.
+  const sheetSelectableCharacters = effectiveIsGm ? characters : characters.filter((c) => c.owner_id === myUserId);
+  const activeSheetCharacterId = sheetSelectableCharacters.some((c) => c.id === sheetPanelCharacterId)
+    ? sheetPanelCharacterId
+    : (sheetSelectableCharacters[0]?.id ?? '');
+  const sheetPanelCharacter = sheetSelectableCharacters.find((c) => c.id === activeSheetCharacterId) ?? null;
+
+  function openSheetPanelFor(characterId: string) {
+    setSheetPanelCharacterId(characterId);
+    setActiveMapPanel('sheet');
+    setOpenTokenPopoverId(null);
+  }
+
   return (
     <div className="map-board-wrap">
       <div className="section-head-row">
@@ -704,6 +731,30 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
           {effectiveIsGm && (
             <button className="link-btn" onClick={() => setShowUpload((s) => !s)}>
               {showUpload ? 'Cancelar' : '+ Novo mapa'}
+            </button>
+          )}
+          {currentMap && schema && sheetSelectableCharacters.length > 0 && (
+            <button
+              className="link-btn"
+              onClick={() => setActiveMapPanel((p) => (p === 'sheet' ? null : 'sheet'))}
+            >
+              {activeMapPanel === 'sheet' ? 'Fechar ficha' : '📋 Ficha'}
+            </button>
+          )}
+          {currentMap && schema && (
+            <button
+              className="link-btn"
+              onClick={() => setActiveMapPanel((p) => (p === 'combat' ? null : 'combat'))}
+            >
+              {activeMapPanel === 'combat' ? 'Fechar combate' : '⚔ Combate'}
+            </button>
+          )}
+          {effectiveIsGm && currentMap && (
+            <button
+              className="link-btn"
+              onClick={() => setActiveMapPanel((p) => (p === 'tokens' ? null : 'tokens'))}
+            >
+              {activeMapPanel === 'tokens' ? 'Fechar tokens' : '🎭 Tokens'}
             </button>
           )}
         </div>
@@ -1050,11 +1101,18 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                 </div>
 
                 {popoverCharacter && schema && (
-                  <CombatantResources
-                    character={popoverCharacter}
-                    schema={schema}
-                    editable={effectiveIsGm || popoverCharacter.owner_id === myUserId}
-                  />
+                  <>
+                    <CombatantResources
+                      character={popoverCharacter}
+                      schema={schema}
+                      editable={effectiveIsGm || popoverCharacter.owner_id === myUserId}
+                    />
+                    {(effectiveIsGm || popoverCharacter.owner_id === myUserId) && (
+                      <button className="link-btn" onClick={() => openSheetPanelFor(popoverCharacter.id)}>
+                        Ver ficha completa
+                      </button>
+                    )}
+                  </>
                 )}
 
                 {(popoverToken.status_effects.length > 0 || effectiveIsGm) && (
@@ -1094,14 +1152,8 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
               </div>
             )}
 
-            {effectiveIsGm && (
-              <>
-                <button className="link-btn map-token-panel-toggle" onClick={() => setTokenPanelOpen((o) => !o)}>
-                  {tokenPanelOpen ? 'Fechar tokens' : '🎭 Tokens'}
-                </button>
-
-                {tokenPanelOpen && (
-                  <div className="sheet-card map-token-manager map-token-panel">
+            {effectiveIsGm && activeMapPanel === 'tokens' && (
+                  <div className="sheet-card map-token-manager map-floating-panel map-panel-bl-panel">
                     <strong className="sheet-card-title">Tokens neste mapa</strong>
                     <form onSubmit={handleAddToken} className="reveal-form-row token-add-row">
                       <select value={newTokenCharacterId} onChange={(e) => setNewTokenCharacterId(e.target.value)}>
@@ -1230,8 +1282,65 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                       </ul>
                     )}
                   </div>
+            )}
+
+            {schema && sheetSelectableCharacters.length > 0 && activeMapPanel === 'sheet' && (
+              <div className="sheet-card map-floating-panel map-panel-bl-panel">
+                <div className="section-head-row">
+                  <strong className="sheet-card-title" style={{ margin: 0 }}>
+                    Ficha
+                  </strong>
+                  {sheetSelectableCharacters.length > 1 && (
+                    <select value={activeSheetCharacterId} onChange={(e) => setSheetPanelCharacterId(e.target.value)}>
+                      {effectiveIsGm && (
+                        <>
+                          <optgroup label="Jogadores">
+                            {sheetSelectableCharacters
+                              .filter((c) => !c.is_npc)
+                              .map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                </option>
+                              ))}
+                          </optgroup>
+                          <optgroup label="NPCs / Inimigos">
+                            {sheetSelectableCharacters
+                              .filter((c) => c.is_npc)
+                              .map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                </option>
+                              ))}
+                          </optgroup>
+                        </>
+                      )}
+                      {!effectiveIsGm &&
+                        sheetSelectableCharacters.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                    </select>
+                  )}
+                </div>
+                {sheetPanelCharacter && (
+                  <CharacterSheet
+                    character={sheetPanelCharacter}
+                    schema={schema}
+                    gameSystemId={gameSystemId}
+                    editable={effectiveIsGm || sheetPanelCharacter.owner_id === myUserId}
+                    isGm={effectiveIsGm}
+                    myUserId={myUserId}
+                  />
                 )}
-              </>
+              </div>
+            )}
+
+            {schema && activeMapPanel === 'combat' && (
+              <div className="sheet-card map-floating-panel map-panel-bl-panel">
+                <strong className="sheet-card-title">Combate</strong>
+                <CombatTracker campaignId={campaignId} isGm={effectiveIsGm} characters={characters} schema={schema} myUserId={myUserId} />
+              </div>
             )}
           </div>
         </>
