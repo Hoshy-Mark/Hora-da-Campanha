@@ -1,6 +1,6 @@
 {
-  "name": "Mesa RPG",
-  "short_name": "Mesa RPG",
+  "name": "Hora da Campanha",
+  "short_name": "Campanha",
   "description": "Sessão de RPG de mesa online, de qualquer sistema — Mestre e jogadores sincronizados em tempo real.",
   "start_url": "/",
   "scope": "/",

@@ -1,4 +1,4 @@
-# Mesa RPG
+# Hora da Campanha
 
 Site de sessão para Mestre × Jogadores — **de qualquer sistema de RPG de mesa**, não só de uma campanha específica. O sistema de regras (D&D, Blade Strands, o que for) é importado como um **JSON** que descreve a forma da ficha; o site não tem nenhum sistema de jogo "hardcoded".
 
@@ -126,6 +126,9 @@ Suba `dist/` na Vercel/Netlify e configure as variáveis de ambiente (`VITE_SUPA
 - [x] **Tooltip nas condições de status** — as 8 condições rápidas (Envenenado, Atordoado, Amedrontado...) ganharam uma descrição curta do que fazem, visível ao passar o mouse tanto no botão de adicionar quanto na tag já aplicada (no mapa e no rastreador de combate). Puramente de UI, sem persistir no banco.
 - [x] **Categorias nas Notas do Mestre** — nota ganha uma categoria (Geral, NPC, Local, Facção, Missão) na criação e na edição, com um filtro por categoria na lista — dá pra organizar NPCs e locais separado de anotações soltas. Requer a migration `015_gm_notes_categories.sql`.
 - [x] **Raio de visão por token** — a linha de visão automática usava um raio fixo (3 células) igual pra todo token de jogador; agora dá pra definir um raio próprio por token (na criação ou depois, na lista de tokens do Mestre) — em branco continua usando o padrão do sistema. Requer a migration `016_token_vision_radius.sql`.
+- [x] **Renomeado pra "Hora da Campanha"** — nome exibido no título da aba, no manifest do PWA, na tela de login e na barra lateral (antes "Mesa RPG"). Puramente de nome/branding, sem mudar nenhuma URL ou identificador interno.
+- [x] **Rastreador de Missões/Objetivos** — nova seção "Missões" na barra lateral persistente da campanha (ao lado de Dados/Atividade), mesmo mecanismo de revelação gradual de Handouts: o Mestre cria uma missão oculta, com título/descrição, revela quando quiser, e marca como Concluída/Falhada (ou reabre). Jogador só vê as reveladas. Requer a migration `017_quests.sql`.
+- [x] **Templates de área de efeito no mapa** — quarto modo ao lado de Terreno/Névoa/Interagir/Medir: "Área", com Círculo/Cone/Linha. Clique na origem e arraste — alcance e direção vêm do arrasto, igual ao Medir — pra visualizar rapidamente onde uma habilidade em área alcança antes de resolver o efeito de verdade. Puramente visual e efêmero (não grava nada no `tile_data`), sem migration.
 
 ## Nota de arquitetura: não confie só no eco do Realtime
 

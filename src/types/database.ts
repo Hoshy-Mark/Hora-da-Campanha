@@ -356,6 +356,34 @@ export interface Database {
         Update: Partial<{ title: string; content: string | null; image_path: string | null; visible_to_player: boolean }>;
         Relationships: Relationships;
       };
+      quests: {
+        Row: {
+          id: string;
+          campaign_id: string;
+          title: string;
+          description: string | null;
+          status: 'active' | 'completed' | 'failed';
+          visible_to_player: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          campaign_id: string;
+          title: string;
+          description?: string | null;
+          status?: 'active' | 'completed' | 'failed';
+          visible_to_player?: boolean;
+        };
+        Update: Partial<{
+          title: string;
+          description: string | null;
+          status: 'active' | 'completed' | 'failed';
+          visible_to_player: boolean;
+          updated_at: string;
+        }>;
+        Relationships: Relationships;
+      };
       maps: {
         Row: {
           id: string;

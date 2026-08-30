@@ -12,6 +12,7 @@ import { GmNotes } from '../components/GmNotes';
 import { Handouts } from '../components/Handouts';
 import { DiceRoller } from '../components/DiceRoller';
 import { ActivityFeed } from '../components/ActivityFeed';
+import { QuestTracker } from '../components/QuestTracker';
 import { logActivity } from '../lib/activity';
 import { useOnlineUserIds } from '../lib/usePresence';
 import { useToast } from '../context/ToastContext';
@@ -652,6 +653,7 @@ export function CampaignRoom() {
             )}
           </section>
 
+          <QuestTracker campaignId={campaign.id} isGm={isGm} />
           <DiceRoller campaignId={campaign.id} myUserId={user?.id} />
           <ActivityFeed campaignId={campaign.id} />
         </div>

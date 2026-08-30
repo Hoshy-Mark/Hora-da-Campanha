@@ -12,6 +12,7 @@ import {
   emptyFog,
   emptyTileMap,
   revealFogAroundPosition,
+  type AoeShape,
   type CustomTileRow,
   type PaintTool,
   type TileMapData,
@@ -82,7 +83,8 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   const [tilemapCols, setTilemapCols] = useState(14);
   const [tilemapRows, setTilemapRows] = useState(10);
   const [tileTool, setTileTool] = useState<string>('wall');
-  const [tileMode, setTileMode] = useState<'terrain' | 'fog' | 'measure' | 'interact'>('terrain');
+  const [tileMode, setTileMode] = useState<'terrain' | 'fog' | 'measure' | 'interact' | 'aoe'>('terrain');
+  const [aoeShape, setAoeShape] = useState<AoeShape>('circle');
   const [fogBrush, setFogBrush] = useState(true);
   const [myCustomTiles, setMyCustomTiles] = useState<CustomTileRow[]>([]);
   const [mapCustomTiles, setMapCustomTiles] = useState<CustomTileRow[]>([]);
@@ -498,7 +500,9 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
         ? { mode: 'fog', reveal: fogBrush }
         : tileMode === 'interact'
           ? { mode: 'interact' }
-          : { mode: 'measure' };
+          : tileMode === 'aoe'
+            ? { mode: 'aoe', shape: aoeShape }
+            : { mode: 'measure' };
 
   async function handleCreateCustomTile(e: FormEvent) {
     e.preventDefault();
@@ -859,6 +863,9 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                 <button type="button" className={tileMode === 'measure' ? 'active' : ''} onClick={() => setTileMode('measure')}>
                   Medir
                 </button>
+                <button type="button" className={tileMode === 'aoe' ? 'active' : ''} onClick={() => setTileMode('aoe')}>
+                  Área
+                </button>
               </div>
 
               {tileMode === 'terrain' ? (
@@ -999,6 +1006,34 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                 <div className="tile-palette">
                   <p className="muted" style={{ margin: 0 }}>
                     Clique e arraste entre duas células pra medir a distância (conta diagonal como 1 célula).
+                  </p>
+                </div>
+              ) : tileMode === 'aoe' ? (
+                <div className="tile-palette">
+                  <button
+                    type="button"
+                    className={`tile-palette-btn ${aoeShape === 'circle' ? 'active' : ''}`}
+                    onClick={() => setAoeShape('circle')}
+                  >
+                    Círculo
+                  </button>
+                  <button
+                    type="button"
+                    className={`tile-palette-btn ${aoeShape === 'cone' ? 'active' : ''}`}
+                    onClick={() => setAoeShape('cone')}
+                  >
+                    Cone
+                  </button>
+                  <button
+                    type="button"
+                    className={`tile-palette-btn ${aoeShape === 'line' ? 'active' : ''}`}
+                    onClick={() => setAoeShape('line')}
+                  >
+                    Linha
+                  </button>
+                  <p className="muted" style={{ margin: 0, flexBasis: '100%' }}>
+                    Clique na origem e arraste — alcance e direção vêm do arrasto, igual ao Medir. É só visual, não
+                    grava nada no mapa.
                   </p>
                 </div>
               ) : !currentMap.tile_data?.fog ? (

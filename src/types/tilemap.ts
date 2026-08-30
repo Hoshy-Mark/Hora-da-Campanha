@@ -237,8 +237,107 @@ export function revealFogAroundPosition(
   return changed ? { ...data, fog: nextFog } : null;
 }
 
+export type AoeShape = 'circle' | 'cone' | 'line';
+
 export type PaintTool =
   | { mode: 'terrain'; tile: string }
   | { mode: 'fog'; reveal: boolean }
   | { mode: 'measure' }
-  | { mode: 'interact' };
+  | { mode: 'interact' }
+  | { mode: 'aoe'; shape: AoeShape };
+
+// Templates de área de efeito: puramente visual/efêmero (não persiste em
+// `tile_data`, mesmo espírito do modo "Medir") — clique define a origem,
+// arrastar define alcance/direção, cada forma calcula seu próprio
+// conjunto de células afetadas a partir disso, sem precisar de um campo
+// de "tamanho" separado na UI.
+function indexToRowCol(index: number, cols: number) {
+  return { row: Math.floor(index / cols), col: index % cols };
+}
+
+function cellsInCircle(origin: number, pointer: number, cols: number, rows: number): Set<number> {
+  const { row: oRow, col: oCol } = indexToRowCol(origin, cols);
+  const { row: pRow, col: pCol } = indexToRowCol(pointer, cols);
+  const radius = Math.max(Math.abs(oRow - pRow), Math.abs(oCol - pCol));
+  const cells = new Set<number>();
+  const rMin = Math.max(0, oRow - radius);
+  const rMax = Math.min(rows - 1, oRow + radius);
+  const cMin = Math.max(0, oCol - radius);
+  const cMax = Math.min(cols - 1, oCol + radius);
+  for (let r = rMin; r <= rMax; r++) {
+    for (let c = cMin; c <= cMax; c++) {
+      const dr = r - oRow;
+      const dc = c - oCol;
+      if (dr * dr + dc * dc <= radius * radius) cells.add(r * cols + c);
+    }
+  }
+  return cells;
+}
+
+function cellsInLine(origin: number, pointer: number, cols: number): Set<number> {
+  const { row: y0, col: x0 } = indexToRowCol(origin, cols);
+  const { row: y1, col: x1 } = indexToRowCol(pointer, cols);
+  const cells = new Set<number>();
+  let x = x0;
+  let y = y0;
+  const dx = Math.abs(x1 - x0);
+  const sx = x0 < x1 ? 1 : -1;
+  const dy = -Math.abs(y1 - y0);
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  while (true) {
+    cells.add(y * cols + x);
+    if (x === x1 && y === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y += sy;
+    }
+  }
+  return cells;
+}
+
+// Cone de 90° (±45° a partir da direção mirada) — simplificação comum
+// em VTTs, não uma régua exata de nenhum sistema específico.
+function cellsInCone(origin: number, pointer: number, cols: number, rows: number): Set<number> {
+  const { row: oRow, col: oCol } = indexToRowCol(origin, cols);
+  const { row: pRow, col: pCol } = indexToRowCol(pointer, cols);
+  const length = Math.max(Math.abs(oRow - pRow), Math.abs(oCol - pCol));
+  const cells = new Set<number>([origin]);
+  if (length === 0) return cells;
+
+  const dirAngle = Math.atan2(pRow - oRow, pCol - oCol);
+  const rMin = Math.max(0, oRow - length);
+  const rMax = Math.min(rows - 1, oRow + length);
+  const cMin = Math.max(0, oCol - length);
+  const cMax = Math.min(cols - 1, oCol + length);
+  for (let r = rMin; r <= rMax; r++) {
+    for (let c = cMin; c <= cMax; c++) {
+      if (r === oRow && c === oCol) continue;
+      const dr = r - oRow;
+      const dc = c - oCol;
+      const dist = Math.sqrt(dr * dr + dc * dc);
+      if (dist > length + 0.5) continue;
+      let diff = Math.abs(Math.atan2(dr, dc) - dirAngle);
+      if (diff > Math.PI) diff = 2 * Math.PI - diff;
+      if (diff <= Math.PI / 4) cells.add(r * cols + c);
+    }
+  }
+  return cells;
+}
+
+export function cellsForAoe(
+  shape: AoeShape,
+  origin: number,
+  pointer: number,
+  cols: number,
+  rows: number
+): Set<number> {
+  if (shape === 'circle') return cellsInCircle(origin, pointer, cols, rows);
+  if (shape === 'cone') return cellsInCone(origin, pointer, cols, rows);
+  return cellsInLine(origin, pointer, cols);
+}

@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { FOG_HIDDEN_COLOR, resolveTile, type CustomTileRow, type PaintTool, type TileMapData } from '../types/tilemap';
+import {
+  FOG_HIDDEN_COLOR,
+  cellsForAoe,
+  resolveTile,
+  type CustomTileRow,
+  type PaintTool,
+  type TileMapData,
+} from '../types/tilemap';
 
 interface Props {
   data: TileMapData;
@@ -53,6 +60,8 @@ export function TileMapBoard({ data, editable, tool, customTiles, resolveUrl, on
 
   const [measureStart, setMeasureStart] = useState<number | null>(null);
   const [measureEnd, setMeasureEnd] = useState<number | null>(null);
+  const [aoeOrigin, setAoeOrigin] = useState<number | null>(null);
+  const [aoePointer, setAoePointer] = useState<number | null>(null);
 
   useEffect(() => {
     function stopPainting() {
@@ -91,6 +100,12 @@ export function TileMapBoard({ data, editable, tool, customTiles, resolveUrl, on
       return;
     }
 
+    if (tool.mode === 'aoe') {
+      if (isStart) setAoeOrigin(index);
+      setAoePointer(index);
+      return;
+    }
+
     if (tool.mode === 'terrain') {
       if (tilesRef.current[index] === tool.tile) return;
       const tiles = [...tilesRef.current];
@@ -110,6 +125,11 @@ export function TileMapBoard({ data, editable, tool, customTiles, resolveUrl, on
   const distance =
     measureStart !== null && measureEnd !== null ? cellDistance(measureStart, measureEnd, data.cols) : null;
 
+  const aoeCells =
+    tool.mode === 'aoe' && aoeOrigin !== null && aoePointer !== null
+      ? cellsForAoe(tool.shape, aoeOrigin, aoePointer, data.cols, data.rows)
+      : null;
+
   return (
     <div
       className="tile-map-grid"
@@ -125,10 +145,11 @@ export function TileMapBoard({ data, editable, tool, customTiles, resolveUrl, on
         const bgImage = editable || revealed ? imagePath : undefined;
         const opacity = editable && !revealed ? 0.55 : 1;
         const isMeasureEndpoint = tool.mode === 'measure' && (i === measureStart || i === measureEnd);
+        const isAoeCell = !!aoeCells?.has(i);
         return (
           <div
             key={i}
-            className={`tile-cell ${isMeasureEndpoint ? 'tile-cell-measure' : ''} ${def?.interactive ? 'tile-cell-interactive' : ''}`}
+            className={`tile-cell ${isMeasureEndpoint ? 'tile-cell-measure' : ''} ${isAoeCell ? 'tile-cell-aoe' : ''} ${def?.interactive ? 'tile-cell-interactive' : ''}`}
             style={{
               backgroundColor: bgImage ? undefined : bg,
               backgroundImage: bgImage ? `url(${bgImage})` : undefined,

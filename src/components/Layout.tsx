@@ -7,7 +7,7 @@ export function Layout() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="sidebar-logo">Mesa RPG</div>
+        <div className="sidebar-logo">Hora da Campanha</div>
         <nav className="sidebar-nav">
           <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>
             Campanhas

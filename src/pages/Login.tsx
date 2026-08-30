@@ -27,7 +27,7 @@ export function Login() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1>Mesa RPG</h1>
+        <h1>Hora da Campanha</h1>
         <p className="auth-sub">
           {mode === 'login' ? 'Entre para acessar suas campanhas.' : 'Crie sua conta de jogador ou Mestre.'}
         </p>
