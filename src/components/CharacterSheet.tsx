@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { debounce } from '../lib/debounce';
-import type { GameSystemSchema, SheetData } from '../types/game-system';
+import { recomputeFormulas, type GameSystemSchema, type SheetData } from '../types/game-system';
 import { ResourceBar } from './ResourceBar';
 import { AbilityList } from './AbilityList';
 import { ItemList } from './ItemList';
@@ -51,7 +51,8 @@ export function CharacterSheet({ character, schema, editable, isGm }: Props) {
   }
 
   function setField(key: string, value: number | string) {
-    update({ ...data, fields: { ...data.fields, [key]: value } });
+    const next = recomputeFormulas(schema, { ...data, fields: { ...data.fields, [key]: value } });
+    update(next);
   }
 
   function setResource(key: string, value: (typeof data.resources)[string]) {
@@ -86,46 +87,56 @@ export function CharacterSheet({ character, schema, editable, isGm }: Props) {
             <strong className="sheet-card-title">{section.label}</strong>
             {section.description && <p className="muted sheet-section-desc">{section.description}</p>}
             <div className="sheet-fields-grid">
-              {section.fields.map((field) => (
-                <label key={field.key} className="sheet-field">
-                  <span>{field.label}</span>
-                  {field.type === 'select' ? (
-                    <select
-                      disabled={!editable}
-                      value={String(data.fields[field.key] ?? '')}
-                      onChange={(e) => setField(field.key, e.target.value)}
-                    >
-                      <option value="" disabled>
-                        —
-                      </option>
-                      {field.options?.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
+              {section.fields.map((field) =>
+                field.formula ? (
+                  <label key={field.key} className="sheet-field">
+                    <span>{field.label}</span>
+                    <div className="computed-field" title={`Calculado: ${field.formula}`}>
+                      {data.fields[field.key] ?? 0}
+                    </div>
+                    <small className="muted mono">= {field.formula}</small>
+                  </label>
+                ) : (
+                  <label key={field.key} className="sheet-field">
+                    <span>{field.label}</span>
+                    {field.type === 'select' ? (
+                      <select
+                        disabled={!editable}
+                        value={String(data.fields[field.key] ?? '')}
+                        onChange={(e) => setField(field.key, e.target.value)}
+                      >
+                        <option value="" disabled>
+                          —
                         </option>
-                      ))}
-                    </select>
-                  ) : field.type === 'longtext' ? (
-                    <textarea
-                      rows={3}
-                      disabled={!editable}
-                      value={String(data.fields[field.key] ?? '')}
-                      onChange={(e) => setField(field.key, e.target.value)}
-                    />
-                  ) : (
-                    <input
-                      type={field.type === 'number' ? 'number' : 'text'}
-                      disabled={!editable}
-                      min={field.min}
-                      max={field.max}
-                      value={data.fields[field.key] ?? (field.type === 'number' ? 0 : '')}
-                      onChange={(e) =>
-                        setField(field.key, field.type === 'number' ? Number(e.target.value) : e.target.value)
-                      }
-                    />
-                  )}
-                  {field.helpText && <small className="muted">{field.helpText}</small>}
-                </label>
-              ))}
+                        {field.options?.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    ) : field.type === 'longtext' ? (
+                      <textarea
+                        rows={3}
+                        disabled={!editable}
+                        value={String(data.fields[field.key] ?? '')}
+                        onChange={(e) => setField(field.key, e.target.value)}
+                      />
+                    ) : (
+                      <input
+                        type={field.type === 'number' ? 'number' : 'text'}
+                        disabled={!editable}
+                        min={field.min}
+                        max={field.max}
+                        value={data.fields[field.key] ?? (field.type === 'number' ? 0 : '')}
+                        onChange={(e) =>
+                          setField(field.key, field.type === 'number' ? Number(e.target.value) : e.target.value)
+                        }
+                      />
+                    )}
+                    {field.helpText && <small className="muted">{field.helpText}</small>}
+                  </label>
+                )
+              )}
             </div>
           </div>
         ))}

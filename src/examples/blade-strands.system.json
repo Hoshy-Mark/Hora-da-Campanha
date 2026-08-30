@@ -68,18 +68,18 @@
     {
       "key": "derivados",
       "label": "Pilares de Ascensão",
-      "description": "v1 do Mesa RPG ainda não calcula fórmulas sozinha — some os atributos conforme a seção 5 das Regras e digite o resultado aqui.",
+      "description": "Calculados automaticamente a partir dos atributos (seção 5 das Regras) — não precisa somar nem digitar nada aqui.",
       "fields": [
-        { "key": "spirit_capacidade", "label": "Spirit — Capacidade (FOR+RES)", "type": "number", "min": 0 },
-        { "key": "spirit_densidade", "label": "Spirit — Densidade (REF+TEC)", "type": "number", "min": 0 },
-        { "key": "spirit_tolerancia", "label": "Spirit — Tolerância (RES)", "type": "number", "min": 0 },
-        { "key": "mana_capacidade", "label": "Mana — Capacidade (FOG+CON)", "type": "number", "min": 0 },
-        { "key": "mana_densidade", "label": "Mana — Densidade (TEC+CON)", "type": "number", "min": 0 },
-        { "key": "mana_tolerancia", "label": "Mana — Tolerância (FOG)", "type": "number", "min": 0 },
-        { "key": "soul_capacidade", "label": "Soul — Capacidade (CON+IDE)", "type": "number", "min": 0 },
-        { "key": "soul_densidade", "label": "Soul — Densidade (PER+IDE)", "type": "number", "min": 0 },
-        { "key": "soul_tolerancia", "label": "Soul — Tolerância (IDE+ANC)", "type": "number", "min": 0 },
-        { "key": "prioridade_existencial", "label": "Prioridade Existencial (IDE+PER+Histórico)", "type": "number", "min": 0 }
+        { "key": "spirit_capacidade", "label": "Spirit — Capacidade", "type": "number", "formula": "FOR + RES" },
+        { "key": "spirit_densidade", "label": "Spirit — Densidade", "type": "number", "formula": "REF + TEC" },
+        { "key": "spirit_tolerancia", "label": "Spirit — Tolerância", "type": "number", "formula": "RES" },
+        { "key": "mana_capacidade", "label": "Mana — Capacidade", "type": "number", "formula": "FOG + CON" },
+        { "key": "mana_densidade", "label": "Mana — Densidade", "type": "number", "formula": "TEC + CON" },
+        { "key": "mana_tolerancia", "label": "Mana — Tolerância", "type": "number", "formula": "FOG" },
+        { "key": "soul_capacidade", "label": "Soul — Capacidade", "type": "number", "formula": "CON + IDE" },
+        { "key": "soul_densidade", "label": "Soul — Densidade", "type": "number", "formula": "PER + IDE" },
+        { "key": "soul_tolerancia", "label": "Soul — Tolerância", "type": "number", "formula": "IDE + ANC" },
+        { "key": "prioridade_existencial", "label": "Prioridade Existencial", "type": "number", "formula": "IDE + PER + historico" }
       ]
     }
   ],

@@ -16,23 +16,32 @@
     {
       "key": "atributos",
       "label": "Atributos",
-      "description": "Modificador não é calculado automaticamente nesta versão — anote o resultado de (Atributo-10)/2 arredondado para baixo, se quiser, num campo de combate.",
+      "description": "O modificador de cada atributo é calculado sozinho: floor((valor-10)/2).",
       "fields": [
         { "key": "STR", "label": "Força", "type": "number", "min": 1, "max": 30, "defaultValue": 10 },
+        { "key": "STR_mod", "label": "Mod. Força", "type": "number", "formula": "floor((STR-10)/2)" },
         { "key": "DEX", "label": "Destreza", "type": "number", "min": 1, "max": 30, "defaultValue": 10 },
+        { "key": "DEX_mod", "label": "Mod. Destreza", "type": "number", "formula": "floor((DEX-10)/2)" },
         { "key": "CON", "label": "Constituição", "type": "number", "min": 1, "max": 30, "defaultValue": 10 },
+        { "key": "CON_mod", "label": "Mod. Constituição", "type": "number", "formula": "floor((CON-10)/2)" },
         { "key": "INT", "label": "Inteligência", "type": "number", "min": 1, "max": 30, "defaultValue": 10 },
+        { "key": "INT_mod", "label": "Mod. Inteligência", "type": "number", "formula": "floor((INT-10)/2)" },
         { "key": "WIS", "label": "Sabedoria", "type": "number", "min": 1, "max": 30, "defaultValue": 10 },
-        { "key": "CHA", "label": "Carisma", "type": "number", "min": 1, "max": 30, "defaultValue": 10 }
+        { "key": "WIS_mod", "label": "Mod. Sabedoria", "type": "number", "formula": "floor((WIS-10)/2)" },
+        { "key": "CHA", "label": "Carisma", "type": "number", "min": 1, "max": 30, "defaultValue": 10 },
+        { "key": "CHA_mod", "label": "Mod. Carisma", "type": "number", "formula": "floor((CHA-10)/2)" }
       ]
     },
     {
       "key": "combate",
       "label": "Combate",
+      "description": "Iniciativa e Percepção Passiva usam o modificador calculado na seção Atributos — uma fórmula pode referenciar campos de qualquer seção da ficha.",
       "fields": [
         { "key": "ca", "label": "Classe de Armadura", "type": "number", "min": 0 },
         { "key": "bonus_proficiencia", "label": "Bônus de Proficiência", "type": "number", "min": 2, "max": 6, "defaultValue": 2 },
-        { "key": "deslocamento", "label": "Deslocamento (m)", "type": "number", "min": 0, "defaultValue": 9 }
+        { "key": "deslocamento", "label": "Deslocamento (m)", "type": "number", "min": 0, "defaultValue": 9 },
+        { "key": "iniciativa", "label": "Iniciativa", "type": "number", "formula": "DEX_mod" },
+        { "key": "percepcao_passiva", "label": "Percepção Passiva", "type": "number", "formula": "10 + WIS_mod" }
       ]
     }
   ],

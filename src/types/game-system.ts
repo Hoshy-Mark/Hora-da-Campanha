@@ -3,12 +3,13 @@
 // isso em comentário. Qualquer mudança de forma precisa ser refletida
 // nos dois lugares.
 //
-// v1 é deliberadamente só "forma da ficha": seções de campos e recursos.
-// Sem fórmulas derivadas ainda (ver decisão registrada no README) — um
-// campo como "Capacidade de Spirit" em Blade Strands vira, por enquanto,
-// um campo numérico comum que o grupo preenche à mão.
+// Campos podem ter uma `formula` opcional (ex: "FOR + RES",
+// "floor((DEX-10)/2)") — nesse caso o valor é calculado sozinho a partir
+// de outros campos da mesma ficha, e o campo vira somente leitura na UI.
+// Ver src/lib/formula.ts para o avaliador.
 
 import { z } from 'zod';
+import { computeFormula, validateFormulaSyntax } from '../lib/formula';
 
 export const FIELD_TYPES = ['number', 'text', 'longtext', 'select'] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
@@ -23,6 +24,7 @@ export const fieldDefSchema = z
     options: z.array(z.string()).optional(), // usado quando type === 'select'
     defaultValue: z.union([z.number(), z.string()]).optional(),
     helpText: z.string().optional(),
+    formula: z.string().optional(), // se presente, o campo é calculado e somente-leitura
   })
   .refine((f) => f.type !== 'select' || (f.options && f.options.length > 0), {
     message: 'Campos do tipo "select" precisam de ao menos uma opção em `options`.',
@@ -95,6 +97,18 @@ export function parseGameSystemSchema(raw: string): ParseResult {
   const dupResource = findDuplicate(resourceKeys);
   if (dupResource) return { ok: false, error: `Chave de recurso duplicada: "${dupResource}"` };
 
+  // Toda fórmula precisa pelo menos fazer sentido sintaticamente antes de
+  // qualquer campanha depender dela — não dá pra saber se as variáveis
+  // referenciadas existem ainda (isso só se sabe olhando as chaves dos
+  // outros campos), mas erro de sintaxe é pego aqui na importação.
+  for (const section of result.data.sections) {
+    for (const field of section.fields) {
+      if (!field.formula) continue;
+      const err = validateFormulaSyntax(field.formula);
+      if (err) return { ok: false, error: `Fórmula inválida no campo "${field.key}": ${err}` };
+    }
+  }
+
   return { ok: true, schema: result.data };
 }
 
@@ -127,6 +141,7 @@ export function emptySheetData(schema: GameSystemSchema): SheetData {
   const fields: Record<string, number | string> = {};
   for (const section of schema.sections) {
     for (const f of section.fields) {
+      if (f.formula) continue; // preenchido por recomputeFormulas logo abaixo
       fields[f.key] = f.defaultValue ?? (f.type === 'number' ? f.min ?? 0 : '');
     }
   }
@@ -136,5 +151,34 @@ export function emptySheetData(schema: GameSystemSchema): SheetData {
     resources[r.key] = r.type === 'bar' ? { atual: r.maxDefault ?? 0, max: r.maxDefault ?? 0 } : { texto: '' };
   }
 
-  return { fields, resources };
+  return recomputeFormulas(schema, { fields, resources });
+}
+
+// Recalcula todo campo com `formula` a partir do valor atual dos demais
+// campos. Chamado depois de qualquer edição de campo na ficha (ver
+// CharacterSheet.tsx) — nunca lê o próprio valor antigo do campo
+// calculado, sempre deriva de novo a partir do resto.
+export function recomputeFormulas(schema: GameSystemSchema, data: SheetData): SheetData {
+  const scope: Record<string, number> = {};
+  for (const [key, value] of Object.entries(data.fields)) {
+    if (typeof value === 'number') scope[key] = value;
+    else {
+      const n = Number(value);
+      if (!Number.isNaN(n)) scope[key] = n;
+    }
+  }
+
+  const fields = { ...data.fields };
+  for (const section of schema.sections) {
+    for (const f of section.fields) {
+      if (!f.formula) continue;
+      try {
+        fields[f.key] = computeFormula(f.formula, scope);
+      } catch {
+        fields[f.key] = 0;
+      }
+    }
+  }
+
+  return { ...data, fields };
 }

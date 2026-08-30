@@ -119,8 +119,10 @@ export function Systems() {
     <div className="systems-page">
       <h1>Meus Sistemas</h1>
       <p className="muted">
-        Um sistema define a forma da ficha (seções de campos + recursos) usada pelas suas campanhas. Sem fórmulas
-        automáticas ainda — campos derivados (como os Pilares de Ascensão de Blade Strands) são preenchidos à mão.
+        Um sistema define a forma da ficha (seções de campos + recursos) usada pelas suas campanhas. Campos podem ter
+        uma <code className="mono">formula</code> opcional (ex: <code className="mono">"FOR + RES"</code>,{' '}
+        <code className="mono">"floor((DEX-10)/2)"</code>) — nesse caso o valor é calculado sozinho a partir de
+        outros campos da ficha, em vez de digitado à mão.
       </p>
 
       <section className="system-import">

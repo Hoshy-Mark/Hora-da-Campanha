@@ -6,7 +6,7 @@ Todo mundo entra na mesma campanha e vê vida, recursos, itens e habilidades sin
 
 **Em produção:** [hora-da-campanha.vercel.app](https://hora-da-campanha.vercel.app)
 
-**Status:** as 5 fases do roadmap original estão completas — auth, sistemas via JSON, campanhas, ficha de personagem sincronizada, Habilidades/Itens com revelação gradual, mapa tático com tokens arrastáveis, rastreador de iniciativa, Notas do Mestre, Segredos por personagem — mais rolador de dados compartilhado e presença online em tempo real (quem está com a aba aberta agora, via Supabase Presence).
+**Status:** as 5 fases do roadmap original estão completas — auth, sistemas via JSON, campanhas, ficha de personagem sincronizada, Habilidades/Itens com revelação gradual, mapa tático com tokens arrastáveis, rastreador de iniciativa, Notas do Mestre, Segredos por personagem — mais rolador de dados compartilhado, presença online em tempo real, notificações toast, Mestre remover jogador da mesa, e um motor de fórmulas que calcula campos derivados sozinho (Pilares de Ascensão, modificadores de D&D).
 
 ## Como o sistema genérico funciona
 
@@ -15,12 +15,12 @@ Um **Game System** é só um nome + um JSON com duas listas:
 - **`sections`** — grupos de campos da ficha (atributos, identidade, o que o sistema precisar). Cada campo tem `key`, `label`, `type` (`number` / `text` / `longtext` / `select`) e limites opcionais.
 - **`resources`** — barras ou textos que os personagens desse sistema rastreiam (vida, mana, munição, "insanidade", o que for). Tipo `bar` guarda `atual`/`max`; tipo `text` guarda uma descrição livre (ex: a "Integridade da Soul" de Blade Strands, que é qualitativa, não numérica).
 
-**Sem fórmulas automáticas nesta fase** — um campo derivado (tipo "Capacidade de Spirit = FOR+RES" ou "modificador de Destreza" em D&D) vira um campo numérico comum que o próprio grupo calcula e digita. Motor de fórmulas é uma fase futura, decisão deliberada pra não travar o projeto num avaliador de expressões antes de validar o resto.
+**Campos calculados (fórmulas):** qualquer campo pode ter uma `formula` opcional (ex: `"FOR + RES"`, `"floor((DEX-10)/2)"`) — nesse caso vira somente-leitura e seu valor é recalculado sozinho sempre que qualquer campo da ficha muda, usando um avaliador de expressões próprio (`src/lib/formula.ts`, sem `eval`/`new Function`). Suporta `+ - * /`, parênteses, negativo unário e as funções `floor`, `ceil`, `round`, `abs`, `min`, `max`. Uma fórmula pode referenciar campos de **qualquer** seção da mesma ficha, não só da própria seção.
 
 Dois exemplos completos ficam em [`src/examples/`](src/examples/):
 
-- [`blade-strands.system.json`](src/examples/blade-strands.system.json) — a ficha completa de Blade Strands (9 atributos, 24 subatributos, Pilares de Ascensão manuais, Estamina/Spirit/Mana como barras, Soul como texto).
-- [`dnd5e.system.json`](src/examples/dnd5e.system.json) — uma ficha básica de D&D 5e (6 atributos, combate, HP como barra), pra provar que o motor não depende do Blade Strands.
+- [`blade-strands.system.json`](src/examples/blade-strands.system.json) — a ficha completa de Blade Strands (9 atributos, 24 subatributos, Pilares de Ascensão **calculados automaticamente**, Estamina/Spirit/Mana como barras, Soul como texto).
+- [`dnd5e.system.json`](src/examples/dnd5e.system.json) — uma ficha de D&D 5e com modificador de cada atributo calculado (`floor((valor-10)/2)`), Iniciativa e Percepção Passiva derivadas desses modificadores — pra provar que o motor não depende do Blade Strands.
 
 Você pode carregar qualquer um dos dois direto na tela **Sistemas** do site, ou escrever o seu do zero pra outro sistema qualquer.
 
@@ -89,7 +89,8 @@ Suba `dist/` na Vercel/Netlify e configure as variáveis de ambiente (`VITE_SUPA
 - [x] **Deploy em produção** — [hora-da-campanha.vercel.app](https://hora-da-campanha.vercel.app), auto-deploy a cada push no GitHub
 - [x] **Notificações toast** — substituem o texto vermelho simples de erro; também cobrem escritas que antes falhavam em silêncio (nenhum componente conferia `{ error }` da resposta do Supabase)
 - [x] **Mestre remover jogador da mesa** — botão "Remover" em cada linha de "Na mesa" (a permissão já existia via RLS, só faltava a UI)
-- [ ] **Fase futura, não decidida ainda** — motor de fórmulas derivadas no schema (ex: modificadores de D&D, Pilares de Ascensão calculados sozinhos)
+- [x] **Motor de fórmulas** — campos com `formula` no schema são calculados automaticamente (avaliador de expressões próprio, sem `eval`) e recalculados a cada edição. Pilares de Ascensão de Blade Strands e modificadores de D&D agora são de verdade, não texto digitado.
+- [ ] **Fase futura, não decidida ainda** — nada planejado no momento
 
 ## Nota de arquitetura: não confie só no eco do Realtime
 
