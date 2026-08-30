@@ -8,6 +8,7 @@ export interface TokenRow {
   label: string;
   token_type: 'player' | 'npc' | 'enemy' | 'other';
   color: string | null;
+  image_path: string | null;
   pos_x: number;
   pos_y: number;
   visible_to_player: boolean;
@@ -31,6 +32,7 @@ interface Props {
   isGm: boolean;
   boardRef: React.RefObject<HTMLDivElement | null>;
   gridSnap: GridSnap | null;
+  avatarUrl: string | null;
   onMove: (id: string, pos_x: number, pos_y: number) => void;
 }
 
@@ -40,7 +42,7 @@ function snapToCellCenter(pct: number, cellCount: number) {
   return (idx + 0.5) * cellPct;
 }
 
-export function MapToken({ token, canMove, isGm, boardRef, gridSnap, onMove }: Props) {
+export function MapToken({ token, canMove, isGm, boardRef, gridSnap, avatarUrl, onMove }: Props) {
   const dragging = useRef(false);
 
   function handlePointerDown(e: ReactPointerEvent<HTMLDivElement>) {
@@ -87,7 +89,11 @@ export function MapToken({ token, canMove, isGm, boardRef, gridSnap, onMove }: P
       onPointerUp={handlePointerUp}
       title={`${token.label}${!token.visible_to_player && isGm ? ' (oculto do jogador)' : ''}`}
     >
-      <span className="map-token-dot" style={{ background: color }} />
+      {avatarUrl ? (
+        <img className="map-token-avatar" src={avatarUrl} alt="" style={{ borderColor: color }} draggable={false} />
+      ) : (
+        <span className="map-token-dot" style={{ background: color }} />
+      )}
       <span className="map-token-label">{token.label}</span>
     </div>
   );

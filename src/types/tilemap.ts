@@ -3,7 +3,19 @@
 // chave de um tipo de terreno. Camada única, sem fog-of-war — só o
 // básico pra montar uma sala/corredor/dungeon rapidamente na tela.
 
-export const TILE_TYPES = ['empty', 'floor', 'wall', 'door', 'tree', 'water'] as const;
+export const TILE_TYPES = [
+  'empty',
+  'floor',
+  'wall',
+  'door',
+  'tree',
+  'water',
+  'stairs',
+  'chest',
+  'lava',
+  'altar',
+  'rubble',
+] as const;
 export type TileType = (typeof TILE_TYPES)[number];
 
 export const TILE_LABEL: Record<TileType, string> = {
@@ -13,6 +25,11 @@ export const TILE_LABEL: Record<TileType, string> = {
   door: 'Porta',
   tree: 'Árvore',
   water: 'Água',
+  stairs: 'Escada',
+  chest: 'Baú',
+  lava: 'Lava',
+  altar: 'Altar',
+  rubble: 'Entulho',
 };
 
 export const TILE_COLOR: Record<TileType, string> = {
@@ -22,6 +39,11 @@ export const TILE_COLOR: Record<TileType, string> = {
   door: '#8a5a34',
   tree: '#2f5a3a',
   water: '#2f5a7a',
+  stairs: '#8b8f99',
+  chest: '#a8862f',
+  lava: '#c9401f',
+  altar: '#7a5a9e',
+  rubble: '#5c5548',
 };
 
 export interface TileMapData {

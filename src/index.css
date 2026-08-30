@@ -763,9 +763,27 @@ h2 {
 .map-token.hidden-token .map-token-dot { border-style: dashed; opacity: 0.7; }
 .map-token.hidden-token .map-token-label { opacity: 0.7; }
 
+.map-token-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.5);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  object-fit: cover;
+}
+.map-token.hidden-token .map-token-avatar { border-style: dashed; opacity: 0.7; }
+
 .map-token-manager { display: flex; flex-direction: column; gap: 10px; }
 .token-add-row { align-items: center; margin-bottom: 4px; }
 .token-add-row select, .token-add-row input { flex: 1; }
+.token-avatar-input { flex: 1 1 140px; font-size: 12px; }
+.token-avatar-swap { position: relative; cursor: pointer; overflow: hidden; }
+.token-avatar-swap input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
 
 /* ---------- Combate / Iniciativa ---------- */
 .combat-tracker { display: flex; flex-direction: column; gap: 12px; }

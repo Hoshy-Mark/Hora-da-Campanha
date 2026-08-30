@@ -67,6 +67,8 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   const [newTokenLabel, setNewTokenLabel] = useState('');
   const [newTokenType, setNewTokenType] = useState<TokenRow['token_type']>('enemy');
   const [newTokenCharacterId, setNewTokenCharacterId] = useState('');
+  const newTokenAvatarRef = useRef<HTMLInputElement>(null);
+  const [avatarUploadingId, setAvatarUploadingId] = useState<string | null>(null);
 
   // Enquanto uma pintura de tile ainda não foi persistida (debounce de
   // handleTileChange), o eco do Realtime pra esse mesmo mapa não pode
@@ -130,7 +132,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     async function loadTokens() {
       const { data } = await supabase
         .from('map_tokens')
-        .select('id, map_id, campaign_id, character_id, label, token_type, color, pos_x, pos_y, visible_to_player')
+        .select('id, map_id, campaign_id, character_id, label, token_type, color, image_path, pos_x, pos_y, visible_to_player')
         .eq('map_id', currentMapId!);
       if (!cancelled) setTokens((data ?? []) as unknown as TokenRow[]);
     }
@@ -273,9 +275,27 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
 
   const paintTool: PaintTool = tileMode === 'terrain' ? { mode: 'terrain', tile: tileTool } : { mode: 'fog', reveal: fogBrush };
 
+  async function uploadTokenAvatar(file: File): Promise<string | null> {
+    const ext = file.name.split('.').pop() || 'png';
+    const path = `${campaignId}/tokens/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from('maps').upload(path, file);
+    if (error) {
+      showToast(error.message, 'error');
+      return null;
+    }
+    return path;
+  }
+
   async function handleAddToken(e: FormEvent) {
     e.preventDefault();
     if (!currentMapId || (!newTokenLabel.trim() && !newTokenCharacterId)) return;
+
+    let imagePath: string | null = null;
+    const avatarFile = newTokenAvatarRef.current?.files?.[0];
+    if (avatarFile) {
+      imagePath = await uploadTokenAvatar(avatarFile);
+      if (!imagePath) return;
+    }
 
     const linkedChar = characters.find((c) => c.id === newTokenCharacterId);
     const { data, error } = await supabase
@@ -286,11 +306,12 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
         character_id: newTokenCharacterId || null,
         label: linkedChar ? linkedChar.name : newTokenLabel.trim(),
         token_type: newTokenType,
+        image_path: imagePath,
         pos_x: 50,
         pos_y: 50,
         visible_to_player: newTokenType !== 'enemy',
       })
-      .select('id, map_id, campaign_id, character_id, label, token_type, color, pos_x, pos_y, visible_to_player')
+      .select('id, map_id, campaign_id, character_id, label, token_type, color, image_path, pos_x, pos_y, visible_to_player')
       .single();
 
     if (error) {
@@ -300,6 +321,26 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     if (data) setTokens((prev) => (prev.some((t) => t.id === data.id) ? prev : [...prev, data as TokenRow]));
     setNewTokenLabel('');
     setNewTokenCharacterId('');
+    if (newTokenAvatarRef.current) newTokenAvatarRef.current.value = '';
+  }
+
+  async function handleSetTokenAvatar(token: TokenRow, file: File) {
+    setAvatarUploadingId(token.id);
+    const path = await uploadTokenAvatar(file);
+    if (!path) {
+      setAvatarUploadingId(null);
+      return;
+    }
+    setTokens((prev) => prev.map((t) => (t.id === token.id ? { ...t, image_path: path } : t)));
+    const { error } = await supabase.from('map_tokens').update({ image_path: path }).eq('id', token.id);
+    setAvatarUploadingId(null);
+    if (error) showToast(error.message, 'error');
+  }
+
+  async function handleRemoveTokenAvatar(token: TokenRow) {
+    setTokens((prev) => prev.map((t) => (t.id === token.id ? { ...t, image_path: null } : t)));
+    const { error } = await supabase.from('map_tokens').update({ image_path: null }).eq('id', token.id);
+    if (error) showToast(error.message, 'error');
   }
 
   async function handleMoveToken(id: string, pos_x: number, pos_y: number) {
@@ -504,6 +545,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                       ? { cols: currentMap.tile_data.cols, rows: currentMap.tile_data.rows }
                       : null
                   }
+                  avatarUrl={t.image_path ? publicUrlFor(t.image_path) : null}
                   onMove={handleMoveToken}
                 />
               ))}
@@ -534,6 +576,13 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                   <option value="enemy">Inimigo</option>
                   <option value="other">Outro</option>
                 </select>
+                <input
+                  ref={newTokenAvatarRef}
+                  type="file"
+                  accept="image/*"
+                  title="Avatar (opcional)"
+                  className="token-avatar-input"
+                />
                 <button type="submit" disabled={!newTokenCharacterId && !newTokenLabel.trim()}>
                   + Adicionar
                 </button>
@@ -551,6 +600,24 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                         </div>
                       </div>
                       <div className="reveal-item-actions">
+                        <label className="link-btn token-avatar-swap">
+                          {avatarUploadingId === t.id ? 'Enviando…' : t.image_path ? 'Trocar imagem' : 'Imagem'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            disabled={avatarUploadingId === t.id}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleSetTokenAvatar(t, file);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
+                        {t.image_path && (
+                          <button className="link-btn" onClick={() => handleRemoveTokenAvatar(t)}>
+                            Remover imagem
+                          </button>
+                        )}
                         <button className="link-btn" onClick={() => toggleTokenVisible(t)}>
                           {t.visible_to_player ? 'Ocultar' : 'Revelar'}
                         </button>

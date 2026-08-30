@@ -649,6 +649,7 @@ create table public.map_tokens (
   label text not null,
   token_type text not null default 'other' check (token_type in ('player', 'npc', 'enemy', 'other')),
   color text,
+  image_path text, -- avatar opcional, no bucket "maps" em "{campaign_id}/tokens/{arquivo}"
   pos_x numeric not null default 50,
   pos_y numeric not null default 50,
   visible_to_player boolean not null default true,
