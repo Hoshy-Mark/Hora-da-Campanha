@@ -14,6 +14,7 @@ import {
   type TileMapData,
   type TileType,
 } from '../types/tilemap';
+import { QUICK_STATUS_EFFECTS, iconForStatus } from '../types/status-effects';
 
 interface MapRow {
   id: string;
@@ -59,7 +60,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   const [tilemapCols, setTilemapCols] = useState(14);
   const [tilemapRows, setTilemapRows] = useState(10);
   const [tileTool, setTileTool] = useState<TileType>('wall');
-  const [tileMode, setTileMode] = useState<'terrain' | 'fog'>('terrain');
+  const [tileMode, setTileMode] = useState<'terrain' | 'fog' | 'measure'>('terrain');
   const [fogBrush, setFogBrush] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
@@ -69,6 +70,8 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   const [newTokenCharacterId, setNewTokenCharacterId] = useState('');
   const newTokenAvatarRef = useRef<HTMLInputElement>(null);
   const [avatarUploadingId, setAvatarUploadingId] = useState<string | null>(null);
+  const [statusEditorTokenId, setStatusEditorTokenId] = useState<string | null>(null);
+  const [customStatus, setCustomStatus] = useState('');
 
   // Enquanto uma pintura de tile ainda não foi persistida (debounce de
   // handleTileChange), o eco do Realtime pra esse mesmo mapa não pode
@@ -132,7 +135,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     async function loadTokens() {
       const { data } = await supabase
         .from('map_tokens')
-        .select('id, map_id, campaign_id, character_id, label, token_type, color, image_path, pos_x, pos_y, visible_to_player')
+        .select('id, map_id, campaign_id, character_id, label, token_type, color, image_path, status_effects, pos_x, pos_y, visible_to_player')
         .eq('map_id', currentMapId!);
       if (!cancelled) setTokens((data ?? []) as unknown as TokenRow[]);
     }
@@ -273,7 +276,12 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     handleTileChange(currentMap.id, { ...currentMap.tile_data, fog: emptyFog(cols, rows, reveal) });
   }
 
-  const paintTool: PaintTool = tileMode === 'terrain' ? { mode: 'terrain', tile: tileTool } : { mode: 'fog', reveal: fogBrush };
+  const paintTool: PaintTool =
+    tileMode === 'terrain'
+      ? { mode: 'terrain', tile: tileTool }
+      : tileMode === 'fog'
+        ? { mode: 'fog', reveal: fogBrush }
+        : { mode: 'measure' };
 
   async function uploadTokenAvatar(file: File): Promise<string | null> {
     const ext = file.name.split('.').pop() || 'png';
@@ -311,7 +319,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
         pos_y: 50,
         visible_to_player: newTokenType !== 'enemy',
       })
-      .select('id, map_id, campaign_id, character_id, label, token_type, color, image_path, pos_x, pos_y, visible_to_player')
+      .select('id, map_id, campaign_id, character_id, label, token_type, color, image_path, status_effects, pos_x, pos_y, visible_to_player')
       .single();
 
     if (error) {
@@ -361,6 +369,21 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   async function removeToken(id: string) {
     setTokens((prev) => prev.filter((t) => t.id !== id));
     const { error } = await supabase.from('map_tokens').delete().eq('id', id);
+    if (error) showToast(error.message, 'error');
+  }
+
+  async function addTokenStatus(t: TokenRow, status: string) {
+    if (!status.trim() || t.status_effects.includes(status)) return;
+    const next = [...t.status_effects, status];
+    setTokens((prev) => prev.map((x) => (x.id === t.id ? { ...x, status_effects: next } : x)));
+    const { error } = await supabase.from('map_tokens').update({ status_effects: next }).eq('id', t.id);
+    if (error) showToast(error.message, 'error');
+  }
+
+  async function removeTokenStatus(t: TokenRow, status: string) {
+    const next = t.status_effects.filter((s) => s !== status);
+    setTokens((prev) => prev.map((x) => (x.id === t.id ? { ...x, status_effects: next } : x)));
+    const { error } = await supabase.from('map_tokens').update({ status_effects: next }).eq('id', t.id);
     if (error) showToast(error.message, 'error');
   }
 
@@ -464,6 +487,9 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                 <button type="button" className={tileMode === 'fog' ? 'active' : ''} onClick={() => setTileMode('fog')}>
                   Névoa de guerra
                 </button>
+                <button type="button" className={tileMode === 'measure' ? 'active' : ''} onClick={() => setTileMode('measure')}>
+                  Medir
+                </button>
               </div>
 
               {tileMode === 'terrain' ? (
@@ -480,6 +506,12 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                       {TILE_LABEL[t]}
                     </button>
                   ))}
+                </div>
+              ) : tileMode === 'measure' ? (
+                <div className="tile-palette">
+                  <p className="muted" style={{ margin: 0 }}>
+                    Clique e arraste entre duas células pra medir a distância (conta diagonal como 1 célula).
+                  </p>
                 </div>
               ) : !currentMap.tile_data?.fog ? (
                 <div className="tile-palette">
@@ -597,9 +629,60 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                           <strong>{t.label}</strong>
                           <span className="tag">{TYPE_LABEL[t.token_type]}</span>
                           {!t.visible_to_player && <span className="tag hidden-tag">Oculto do jogador</span>}
+                          {t.status_effects.map((s) => (
+                            <span key={s} className="tag status-tag">
+                              {iconForStatus(s)} {s}
+                              <button
+                                type="button"
+                                className="status-tag-remove"
+                                onClick={() => removeTokenStatus(t, s)}
+                                title="Remover condição"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
                         </div>
+                        {statusEditorTokenId === t.id && (
+                          <div className="status-editor">
+                            {QUICK_STATUS_EFFECTS.map((s) => (
+                              <button
+                                key={s.key}
+                                type="button"
+                                className="tile-palette-btn"
+                                disabled={t.status_effects.includes(s.key)}
+                                onClick={() => addTokenStatus(t, s.key)}
+                              >
+                                {s.icon} {s.label}
+                              </button>
+                            ))}
+                            <div className="reveal-form-row">
+                              <input
+                                placeholder="Condição customizada"
+                                value={customStatus}
+                                onChange={(e) => setCustomStatus(e.target.value)}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  addTokenStatus(t, customStatus.trim());
+                                  setCustomStatus('');
+                                }}
+                                disabled={!customStatus.trim()}
+                              >
+                                Adicionar
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="reveal-item-actions">
+                        <button
+                          className="link-btn"
+                          onClick={() => setStatusEditorTokenId(statusEditorTokenId === t.id ? null : t.id)}
+                        >
+                          {statusEditorTokenId === t.id ? 'Fechar status' : '+ Status'}
+                        </button>
                         <label className="link-btn token-avatar-swap">
                           {avatarUploadingId === t.id ? 'Enviando…' : t.image_path ? 'Trocar imagem' : 'Imagem'}
                           <input

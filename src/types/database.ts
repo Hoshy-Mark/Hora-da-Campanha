@@ -331,6 +331,7 @@ export interface Database {
           token_type: 'player' | 'npc' | 'enemy' | 'other';
           color: string | null;
           image_path: string | null;
+          status_effects: string[];
           pos_x: number;
           pos_y: number;
           visible_to_player: boolean;
@@ -346,6 +347,7 @@ export interface Database {
           token_type?: 'player' | 'npc' | 'enemy' | 'other';
           color?: string | null;
           image_path?: string | null;
+          status_effects?: string[];
           pos_x?: number;
           pos_y?: number;
           visible_to_player?: boolean;
@@ -355,6 +357,7 @@ export interface Database {
           token_type: 'player' | 'npc' | 'enemy' | 'other';
           color: string | null;
           image_path: string | null;
+          status_effects: string[];
           pos_x: number;
           pos_y: number;
           visible_to_player: boolean;

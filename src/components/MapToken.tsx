@@ -1,4 +1,5 @@
 import { useRef, type PointerEvent as ReactPointerEvent } from 'react';
+import { iconForStatus } from '../types/status-effects';
 
 export interface TokenRow {
   id: string;
@@ -9,6 +10,7 @@ export interface TokenRow {
   token_type: 'player' | 'npc' | 'enemy' | 'other';
   color: string | null;
   image_path: string | null;
+  status_effects: string[];
   pos_x: number;
   pos_y: number;
   visible_to_player: boolean;
@@ -87,8 +89,17 @@ export function MapToken({ token, canMove, isGm, boardRef, gridSnap, avatarUrl, 
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      title={`${token.label}${!token.visible_to_player && isGm ? ' (oculto do jogador)' : ''}`}
+      title={`${token.label}${token.status_effects.length ? ` (${token.status_effects.join(', ')})` : ''}${!token.visible_to_player && isGm ? ' (oculto do jogador)' : ''}`}
     >
+      {token.status_effects.length > 0 && (
+        <span className="map-token-statuses">
+          {token.status_effects.map((s) => (
+            <span key={s} className="map-token-status-badge">
+              {iconForStatus(s)}
+            </span>
+          ))}
+        </span>
+      )}
       {avatarUrl ? (
         <img className="map-token-avatar" src={avatarUrl} alt="" style={{ borderColor: color }} draggable={false} />
       ) : (

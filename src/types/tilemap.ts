@@ -68,4 +68,4 @@ export function emptyFog(cols: number, rows: number, revealed: boolean): boolean
   return Array(cols * rows).fill(revealed);
 }
 
-export type PaintTool = { mode: 'terrain'; tile: TileType } | { mode: 'fog'; reveal: boolean };
+export type PaintTool = { mode: 'terrain'; tile: TileType } | { mode: 'fog'; reveal: boolean } | { mode: 'measure' };

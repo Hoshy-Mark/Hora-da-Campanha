@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FOG_HIDDEN_COLOR, TILE_COLOR, type PaintTool, type TileMapData } from '../types/tilemap';
 
 interface Props {
@@ -6,6 +6,16 @@ interface Props {
   editable: boolean;
   tool: PaintTool;
   onChange: (next: TileMapData) => void;
+}
+
+function cellDistance(a: number, b: number, cols: number) {
+  const rowA = Math.floor(a / cols);
+  const colA = a % cols;
+  const rowB = Math.floor(b / cols);
+  const colB = b % cols;
+  // Distância "em células" ao estilo D&D 5e simplificado: diagonal conta
+  // igual a ortogonal (regra de xadrez do rei), não a raiz de 2.
+  return Math.max(Math.abs(rowA - rowB), Math.abs(colA - colB));
 }
 
 // Renderiza só o grid (sem paleta/controles, que ficam fora do container
@@ -33,6 +43,9 @@ export function TileMapBoard({ data, editable, tool, onChange }: Props) {
     fogRef.current = data.fog;
   }, [data.tiles, data.fog]);
 
+  const [measureStart, setMeasureStart] = useState<number | null>(null);
+  const [measureEnd, setMeasureEnd] = useState<number | null>(null);
+
   useEffect(() => {
     function stopPainting() {
       painting.current = false;
@@ -41,8 +54,14 @@ export function TileMapBoard({ data, editable, tool, onChange }: Props) {
     return () => window.removeEventListener('pointerup', stopPainting);
   }, []);
 
-  function paint(index: number) {
+  function paint(index: number, isStart: boolean) {
     if (!editable) return;
+
+    if (tool.mode === 'measure') {
+      if (isStart) setMeasureStart(index);
+      setMeasureEnd(index);
+      return;
+    }
 
     if (tool.mode === 'terrain') {
       if (tilesRef.current[index] === tool.tile) return;
@@ -60,6 +79,9 @@ export function TileMapBoard({ data, editable, tool, onChange }: Props) {
     onChange({ ...data, tiles: tilesRef.current, fog });
   }
 
+  const distance =
+    measureStart !== null && measureEnd !== null ? cellDistance(measureStart, measureEnd, data.cols) : null;
+
   return (
     <div
       className="tile-map-grid"
@@ -69,19 +91,24 @@ export function TileMapBoard({ data, editable, tool, onChange }: Props) {
         const revealed = !data.fog || data.fog[i];
         const bg = editable || revealed ? TILE_COLOR[tile] : FOG_HIDDEN_COLOR;
         const opacity = editable && !revealed ? 0.55 : 1;
+        const isMeasureEndpoint = tool.mode === 'measure' && (i === measureStart || i === measureEnd);
         return (
           <div
             key={i}
-            className="tile-cell"
+            className={`tile-cell ${isMeasureEndpoint ? 'tile-cell-measure' : ''}`}
             style={{ background: bg, opacity }}
             onPointerDown={() => {
               painting.current = true;
-              paint(i);
+              paint(i, true);
             }}
             onPointerEnter={() => {
-              if (painting.current) paint(i);
+              if (painting.current) paint(i, false);
             }}
-          />
+          >
+            {i === measureEnd && distance !== null && (
+              <span className="tile-measure-badge">{distance} célula{distance === 1 ? '' : 's'}</span>
+            )}
+          </div>
         );
       })}
     </div>
