@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../context/ToastContext';
 
 interface Secret {
   id: string;
@@ -18,6 +19,7 @@ interface Props {
 // garante que, mesmo se algo mudar nesse controle de UI no futuro, um
 // jogador nunca consegue ler uma linha de character_secrets.
 export function CharacterSecrets({ characterId, campaignId }: Props) {
+  const { showToast } = useToast();
   const [secrets, setSecrets] = useState<Secret[]>([]);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -64,9 +66,13 @@ export function CharacterSecrets({ characterId, campaignId }: Props) {
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
-    await supabase
+    const { error } = await supabase
       .from('character_secrets')
       .insert({ character_id: characterId, campaign_id: campaignId, title: title.trim(), content: content.trim() });
+    if (error) {
+      showToast(error.message, 'error');
+      return;
+    }
     setTitle('');
     setContent('');
     setShowForm(false);
@@ -75,7 +81,8 @@ export function CharacterSecrets({ characterId, campaignId }: Props) {
 
   async function remove(id: string) {
     if (!confirm('Apagar este segredo?')) return;
-    await supabase.from('character_secrets').delete().eq('id', id);
+    const { error } = await supabase.from('character_secrets').delete().eq('id', id);
+    if (error) showToast(error.message, 'error');
     await refresh();
   }
 

@@ -356,6 +356,8 @@ h2 {
   gap: 10px;
   font-size: 13.5px;
 }
+.member-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.member-remove-btn { font-size: 11.5px; }
 
 .presence-dot {
   width: 8px;
@@ -850,4 +852,37 @@ h2 {
 @media (max-width: 520px) {
   .dashboard-actions { flex-direction: column; }
   .inline-form { min-width: 0; width: 100%; }
+}
+
+/* ---------- Toasts ---------- */
+.toast-stack {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  max-width: min(360px, calc(100vw - 40px));
+}
+
+.toast {
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  cursor: pointer;
+  animation: toast-in 0.18s ease-out;
+}
+.toast-error { border-left-color: var(--danger); }
+.toast-success { border-left-color: var(--good); }
+.toast-info { border-left-color: var(--player); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }

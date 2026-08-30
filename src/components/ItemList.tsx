@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../context/ToastContext';
 
 interface Item {
   id: string;
@@ -20,6 +21,7 @@ interface Props {
 const emptyForm = { name: '', description: '', quantity: '1' };
 
 export function ItemList({ characterId, campaignId, isGm }: Props) {
+  const { showToast } = useToast();
   const [items, setItems] = useState<Item[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
@@ -67,7 +69,7 @@ export function ItemList({ characterId, campaignId, isGm }: Props) {
     e.preventDefault();
     if (!form.name.trim()) return;
     setSaving(true);
-    await supabase.from('inventory_items').insert({
+    const { error } = await supabase.from('inventory_items').insert({
       campaign_id: campaignId,
       character_id: characterId,
       name: form.name.trim(),
@@ -76,24 +78,34 @@ export function ItemList({ characterId, campaignId, isGm }: Props) {
       visible_to_player: false,
     });
     setSaving(false);
+    if (error) {
+      showToast(error.message, 'error');
+      return;
+    }
     setForm(emptyForm);
     setShowForm(false);
     await refresh();
   }
 
   async function toggleVisible(item: Item) {
-    await supabase.from('inventory_items').update({ visible_to_player: !item.visible_to_player }).eq('id', item.id);
+    const { error } = await supabase
+      .from('inventory_items')
+      .update({ visible_to_player: !item.visible_to_player })
+      .eq('id', item.id);
+    if (error) showToast(error.message, 'error');
     await refresh();
   }
 
   async function changeQuantity(item: Item, delta: number) {
     const next = Math.max(0, item.quantity + delta);
-    await supabase.from('inventory_items').update({ quantity: next }).eq('id', item.id);
+    const { error } = await supabase.from('inventory_items').update({ quantity: next }).eq('id', item.id);
+    if (error) showToast(error.message, 'error');
     await refresh();
   }
 
   async function remove(id: string) {
-    await supabase.from('inventory_items').delete().eq('id', id);
+    const { error } = await supabase.from('inventory_items').delete().eq('id', id);
+    if (error) showToast(error.message, 'error');
     await refresh();
   }
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { parseGameSystemSchema, type GameSystemSchema } from '../types/game-system';
 import bladeStrandsExample from '../examples/blade-strands.system.json?raw';
 import dnd5eExample from '../examples/dnd5e.system.json?raw';
@@ -19,6 +20,7 @@ const EXAMPLES = [
 
 export function Systems() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [systems, setSystems] = useState<SystemRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -26,7 +28,6 @@ export function Systems() {
   const [rawJson, setRawJson] = useState('');
   const [preview, setPreview] = useState<GameSystemSchema | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -38,7 +39,8 @@ export function Systems() {
       .eq('owner_id', user!.id)
       .order('created_at', { ascending: false });
 
-    if (!error) setSystems((data ?? []) as unknown as SystemRow[]);
+    if (error) showToast(error.message, 'error');
+    else setSystems((data ?? []) as unknown as SystemRow[]);
     setLoading(false);
   }
 
@@ -49,7 +51,6 @@ export function Systems() {
 
   function handleJsonChange(value: string) {
     setRawJson(value);
-    setSaveError(null);
 
     if (!value.trim()) {
       setPreview(null);
@@ -84,7 +85,6 @@ export function Systems() {
     e.preventDefault();
     if (!preview) return;
     setSaving(true);
-    setSaveError(null);
 
     const { error } = await supabase.rpc('create_game_system', {
       p_name: name.trim() || preview.name,
@@ -93,7 +93,7 @@ export function Systems() {
 
     setSaving(false);
     if (error) {
-      setSaveError(error.message);
+      showToast(error.message, 'error');
       return;
     }
 
@@ -101,13 +101,18 @@ export function Systems() {
     setRawJson('');
     setPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    showToast('Sistema salvo!', 'success');
     loadSystems();
   }
 
   async function handleDelete(id: string) {
     if (!confirm('Apagar este sistema? Campanhas que já o usam deixarão de poder ser abertas.')) return;
     const { error } = await supabase.from('game_systems').delete().eq('id', id);
-    if (!error) loadSystems();
+    if (error) showToast(error.message, 'error');
+    else {
+      showToast('Sistema apagado.', 'success');
+      loadSystems();
+    }
   }
 
   return (
@@ -151,7 +156,6 @@ export function Systems() {
           </label>
 
           {validationError && <p className="auth-error">{validationError}</p>}
-          {saveError && <p className="auth-error">{saveError}</p>}
 
           {preview && (
             <div className="schema-preview">

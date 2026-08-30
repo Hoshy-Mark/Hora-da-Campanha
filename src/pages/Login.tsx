@@ -1,18 +1,18 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export function Login() {
   const { signInWithPassword, signUp } = useAuth();
+  const { showToast } = useToast();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setError(null);
     setSubmitting(true);
 
     const result =
@@ -21,7 +21,7 @@ export function Login() {
         : await signUp(email, password, displayName || email.split('@')[0]);
 
     setSubmitting(false);
-    if (result.error) setError(result.error);
+    if (result.error) showToast(result.error, 'error');
   }
 
   return (
@@ -47,8 +47,6 @@ export function Login() {
             Senha
             <input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
           </label>
-
-          {error && <p className="auth-error">{error}</p>}
 
           <button type="submit" disabled={submitting}>
             {submitting ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar conta'}

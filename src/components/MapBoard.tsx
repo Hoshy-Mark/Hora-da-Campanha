@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../context/ToastContext';
 import { MapToken, type TokenRow } from './MapToken';
 
 interface MapRow {
@@ -33,6 +34,7 @@ const TYPE_LABEL: Record<TokenRow['token_type'], string> = {
 };
 
 export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characters, myUserId }: Props) {
+  const { showToast } = useToast();
   const [maps, setMaps] = useState<MapRow[]>([]);
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [showUpload, setShowUpload] = useState(false);
@@ -160,6 +162,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
       // adiciona na lista local na hora e já seleciona ele.
       setMaps((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data as MapRow]));
       onSelectMap(data.id);
+      showToast('Mapa enviado!', 'success');
     }
   }
 
@@ -168,7 +171,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     if (!currentMapId || (!newTokenLabel.trim() && !newTokenCharacterId)) return;
 
     const linkedChar = characters.find((c) => c.id === newTokenCharacterId);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('map_tokens')
       .insert({
         map_id: currentMapId,
@@ -183,6 +186,10 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
       .select('id, map_id, campaign_id, character_id, label, token_type, color, pos_x, pos_y, visible_to_player')
       .single();
 
+    if (error) {
+      showToast(error.message, 'error');
+      return;
+    }
     if (data) setTokens((prev) => (prev.some((t) => t.id === data.id) ? prev : [...prev, data as TokenRow]));
     setNewTokenLabel('');
     setNewTokenCharacterId('');
@@ -190,17 +197,23 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
 
   async function handleMoveToken(id: string, pos_x: number, pos_y: number) {
     setTokens((prev) => prev.map((t) => (t.id === id ? { ...t, pos_x, pos_y } : t)));
-    await supabase.from('map_tokens').update({ pos_x, pos_y }).eq('id', id);
+    const { error } = await supabase.from('map_tokens').update({ pos_x, pos_y }).eq('id', id);
+    if (error) showToast(error.message, 'error');
   }
 
   async function toggleTokenVisible(t: TokenRow) {
     setTokens((prev) => prev.map((x) => (x.id === t.id ? { ...x, visible_to_player: !x.visible_to_player } : x)));
-    await supabase.from('map_tokens').update({ visible_to_player: !t.visible_to_player }).eq('id', t.id);
+    const { error } = await supabase
+      .from('map_tokens')
+      .update({ visible_to_player: !t.visible_to_player })
+      .eq('id', t.id);
+    if (error) showToast(error.message, 'error');
   }
 
   async function removeToken(id: string) {
     setTokens((prev) => prev.filter((t) => t.id !== id));
-    await supabase.from('map_tokens').delete().eq('id', id);
+    const { error } = await supabase.from('map_tokens').delete().eq('id', id);
+    if (error) showToast(error.message, 'error');
   }
 
   function canMoveToken(t: TokenRow) {

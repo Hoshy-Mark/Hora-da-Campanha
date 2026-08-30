@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../context/ToastContext';
 import { formatExpression, parseDiceExpression, rollDice } from '../lib/dice';
 
 interface RollRow {
@@ -21,6 +22,7 @@ interface Props {
 const QUICK_DICE = [4, 6, 8, 10, 12, 20, 100];
 
 export function DiceRoller({ campaignId, myUserId }: Props) {
+  const { showToast } = useToast();
   const [rolls, setRolls] = useState<RollRow[]>([]);
   const [expression, setExpression] = useState('');
   const [label, setLabel] = useState('');
@@ -62,7 +64,7 @@ export function DiceRoller({ campaignId, myUserId }: Props) {
     setError(null);
 
     const result = rollDice(parsed);
-    await supabase.from('dice_rolls').insert({
+    const { error: dbError } = await supabase.from('dice_rolls').insert({
       campaign_id: campaignId,
       user_id: myUserId,
       label: rollLabel,
@@ -70,6 +72,7 @@ export function DiceRoller({ campaignId, myUserId }: Props) {
       results: result.rolls,
       total: result.total,
     });
+    if (dbError) showToast(dbError.message, 'error');
     await refresh();
   }
 

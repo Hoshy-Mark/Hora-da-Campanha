@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../context/ToastContext';
 
 interface Ability {
   id: string;
@@ -22,6 +23,7 @@ interface Props {
 const emptyForm = { name: '', category: '', cost: '', tier: '', description: '' };
 
 export function AbilityList({ characterId, campaignId, isGm }: Props) {
+  const { showToast } = useToast();
   const [abilities, setAbilities] = useState<Ability[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
@@ -69,7 +71,7 @@ export function AbilityList({ characterId, campaignId, isGm }: Props) {
     e.preventDefault();
     if (!form.name.trim()) return;
     setSaving(true);
-    await supabase.from('character_abilities').insert({
+    const { error } = await supabase.from('character_abilities').insert({
       character_id: characterId,
       campaign_id: campaignId,
       name: form.name.trim(),
@@ -80,18 +82,27 @@ export function AbilityList({ characterId, campaignId, isGm }: Props) {
       visible_to_player: false,
     });
     setSaving(false);
+    if (error) {
+      showToast(error.message, 'error');
+      return;
+    }
     setForm(emptyForm);
     setShowForm(false);
     await refresh();
   }
 
   async function toggleVisible(a: Ability) {
-    await supabase.from('character_abilities').update({ visible_to_player: !a.visible_to_player }).eq('id', a.id);
+    const { error } = await supabase
+      .from('character_abilities')
+      .update({ visible_to_player: !a.visible_to_player })
+      .eq('id', a.id);
+    if (error) showToast(error.message, 'error');
     await refresh();
   }
 
   async function remove(id: string) {
-    await supabase.from('character_abilities').delete().eq('id', id);
+    const { error } = await supabase.from('character_abilities').delete().eq('id', id);
+    if (error) showToast(error.message, 'error');
     await refresh();
   }
 

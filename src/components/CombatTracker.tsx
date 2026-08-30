@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../context/ToastContext';
 import { formatExpression, rollDice } from '../lib/dice';
 
 interface Entry {
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function CombatTracker({ campaignId, isGm, characters, myUserId }: Props) {
+  const { showToast } = useToast();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [label, setLabel] = useState('');
   const [characterId, setCharacterId] = useState('');
@@ -77,13 +79,17 @@ export function CombatTracker({ campaignId, isGm, characters, myUserId }: Props)
     const linkedChar = characters.find((c) => c.id === characterId);
     if (!linkedChar && !label.trim()) return;
 
-    await supabase.from('initiative_entries').insert({
+    const { error } = await supabase.from('initiative_entries').insert({
       campaign_id: campaignId,
       character_id: characterId || null,
       label: linkedChar ? linkedChar.name : label.trim(),
       initiative: Number(initiative) || 0,
       visible_to_player: true,
     });
+    if (error) {
+      showToast(error.message, 'error');
+      return;
+    }
 
     setLabel('');
     setCharacterId('');
@@ -92,23 +98,30 @@ export function CombatTracker({ campaignId, isGm, characters, myUserId }: Props)
   }
 
   async function updateInitiative(entry: Entry, value: number) {
-    await supabase.from('initiative_entries').update({ initiative: value }).eq('id', entry.id);
+    const { error } = await supabase.from('initiative_entries').update({ initiative: value }).eq('id', entry.id);
+    if (error) showToast(error.message, 'error');
     await refresh();
   }
 
   async function toggleVisible(entry: Entry) {
-    await supabase.from('initiative_entries').update({ visible_to_player: !entry.visible_to_player }).eq('id', entry.id);
+    const { error } = await supabase
+      .from('initiative_entries')
+      .update({ visible_to_player: !entry.visible_to_player })
+      .eq('id', entry.id);
+    if (error) showToast(error.message, 'error');
     await refresh();
   }
 
   async function remove(id: string) {
-    await supabase.from('initiative_entries').delete().eq('id', id);
+    const { error } = await supabase.from('initiative_entries').delete().eq('id', id);
+    if (error) showToast(error.message, 'error');
     await refresh();
   }
 
   async function startCombat() {
     if (entries.length === 0) return;
-    await supabase.from('initiative_entries').update({ is_current: true }).eq('id', entries[0].id);
+    const { error } = await supabase.from('initiative_entries').update({ is_current: true }).eq('id', entries[0].id);
+    if (error) showToast(error.message, 'error');
     await refresh();
   }
 
@@ -116,8 +129,15 @@ export function CombatTracker({ campaignId, isGm, characters, myUserId }: Props)
     const currentIdx = entries.findIndex((e) => e.is_current);
     if (currentIdx === -1) return startCombat();
     const nextIdx = (currentIdx + 1) % entries.length;
-    await supabase.from('initiative_entries').update({ is_current: false }).eq('id', entries[currentIdx].id);
-    await supabase.from('initiative_entries').update({ is_current: true }).eq('id', entries[nextIdx].id);
+    const { error: e1 } = await supabase
+      .from('initiative_entries')
+      .update({ is_current: false })
+      .eq('id', entries[currentIdx].id);
+    const { error: e2 } = await supabase
+      .from('initiative_entries')
+      .update({ is_current: true })
+      .eq('id', entries[nextIdx].id);
+    if (e1 || e2) showToast((e1 ?? e2)!.message, 'error');
     await refresh();
   }
 
@@ -137,7 +157,8 @@ export function CombatTracker({ campaignId, isGm, characters, myUserId }: Props)
     for (const e of entries) {
       const expr = { count: 1, sides: 20, modifier: e.initiative };
       const roll = rollDice(expr);
-      await supabase.from('initiative_entries').update({ initiative: roll.total }).eq('id', e.id);
+      const { error } = await supabase.from('initiative_entries').update({ initiative: roll.total }).eq('id', e.id);
+      if (error) showToast(error.message, 'error');
       await supabase.from('dice_rolls').insert({
         campaign_id: campaignId,
         user_id: myUserId,

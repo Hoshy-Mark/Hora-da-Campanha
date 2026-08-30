@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../context/ToastContext';
 
 interface Note {
   id: string;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function GmNotes({ campaignId }: Props) {
+  const { showToast } = useToast();
   const [notes, setNotes] = useState<Note[]>([]);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -62,7 +64,13 @@ export function GmNotes({ campaignId }: Props) {
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
-    await supabase.from('gm_notes').insert({ campaign_id: campaignId, title: title.trim(), content: content.trim() || null });
+    const { error } = await supabase
+      .from('gm_notes')
+      .insert({ campaign_id: campaignId, title: title.trim(), content: content.trim() || null });
+    if (error) {
+      showToast(error.message, 'error');
+      return;
+    }
     setTitle('');
     setContent('');
     setShowForm(false);
@@ -75,14 +83,19 @@ export function GmNotes({ campaignId }: Props) {
   }
 
   async function saveEdit(id: string) {
-    await supabase.from('gm_notes').update({ content: editContent, updated_at: new Date().toISOString() }).eq('id', id);
+    const { error } = await supabase
+      .from('gm_notes')
+      .update({ content: editContent, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) showToast(error.message, 'error');
     setEditingId(null);
     await refresh();
   }
 
   async function remove(id: string) {
     if (!confirm('Apagar esta nota?')) return;
-    await supabase.from('gm_notes').delete().eq('id', id);
+    const { error } = await supabase.from('gm_notes').delete().eq('id', id);
+    if (error) showToast(error.message, 'error');
     await refresh();
   }
 

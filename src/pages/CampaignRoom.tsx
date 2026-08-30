@@ -10,6 +10,7 @@ import { CombatTracker } from '../components/CombatTracker';
 import { GmNotes } from '../components/GmNotes';
 import { DiceRoller } from '../components/DiceRoller';
 import { useOnlineUserIds } from '../lib/usePresence';
+import { useToast } from '../context/ToastContext';
 
 interface Member {
   user_id: string;
@@ -39,12 +40,13 @@ interface CharacterRow {
 export function CampaignRoom() {
   const { id: campaignId } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [campaign, setCampaign] = useState<CampaignInfo | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [characters, setCharacters] = useState<CharacterRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'sheet' | 'map' | 'combat' | 'notes'>('sheet');
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [newCharName, setNewCharName] = useState('');
   const [newCharOwnerId, setNewCharOwnerId] = useState('');
@@ -77,10 +79,10 @@ export function CampaignRoom() {
         ]);
 
       if (cancelled) return;
-      if (campaignError) setError(campaignError.message);
+      if (campaignError) setLoadError(campaignError.message);
       else setCampaign(campaignData as unknown as CampaignInfo);
 
-      if (memberError) setError(memberError.message);
+      if (memberError) setLoadError(memberError.message);
       else setMembers((memberData ?? []) as unknown as Member[]);
     }
 
@@ -157,7 +159,7 @@ export function CampaignRoom() {
     // a mudança via campaignChannel normalmente.
     setCampaign((prev) => (prev ? { ...prev, current_map_id: mapId } : prev));
     const { error } = await supabase.from('campaigns').update({ current_map_id: mapId }).eq('id', campaignId);
-    if (error) setError(error.message);
+    if (error) showToast(error.message, 'error');
   }
 
   async function handleCreateCharacter(e: FormEvent) {
@@ -177,11 +179,12 @@ export function CampaignRoom() {
       .select('id, campaign_id, owner_id, name, sheet_data, is_npc')
       .single();
     setCreating(false);
-    if (error) setError(error.message);
+    if (error) showToast(error.message, 'error');
     else {
       if (data) setCharacters((prev) => (prev.some((c) => c.id === data.id) ? prev : [...prev, data as CharacterRow]));
       setNewCharName('');
       setNewCharOwnerId('');
+      showToast('Personagem criado!', 'success');
     }
   }
 
@@ -190,10 +193,23 @@ export function CampaignRoom() {
     setCharacters((prev) => prev.filter((c) => c.id !== id));
     if (selectedId === id) setSelectedId(null);
     const { error } = await supabase.from('characters').delete().eq('id', id);
-    if (error) setError(error.message);
+    if (error) showToast(error.message, 'error');
   }
 
-  if (error) return <p className="auth-error">{error}</p>;
+  async function handleRemoveMember(userId: string, name: string) {
+    if (!campaignId) return;
+    if (!confirm(`Remover ${name} da campanha? Ele(a) precisará de um novo convite pra voltar.`)) return;
+    setMembers((prev) => prev.filter((m) => m.user_id !== userId));
+    const { error } = await supabase
+      .from('campaign_members')
+      .delete()
+      .eq('campaign_id', campaignId)
+      .eq('user_id', userId);
+    if (error) showToast(error.message, 'error');
+    else showToast(`${name} foi removido(a) da mesa.`, 'success');
+  }
+
+  if (loadError) return <p className="auth-error">{loadError}</p>;
   if (!campaign) return <p className="muted">Carregando campanha…</p>;
 
   const selected = characters.find((c) => c.id === selectedId) ?? null;
@@ -218,8 +234,16 @@ export function CampaignRoom() {
                     className={`presence-dot ${onlineUserIds.has(m.user_id) ? 'online' : 'offline'}`}
                     title={onlineUserIds.has(m.user_id) ? 'Online agora' : 'Offline'}
                   />
-                  {m.profiles?.display_name ?? '—'}
+                  <span className="member-name">{m.profiles?.display_name ?? '—'}</span>
                   <span className={`role-badge role-${m.role}`}>{m.role === 'gm' ? 'Mestre' : 'Jogador'}</span>
+                  {isGm && m.user_id !== user?.id && (
+                    <button
+                      className="link-btn danger member-remove-btn"
+                      onClick={() => handleRemoveMember(m.user_id, m.profiles?.display_name ?? 'esse jogador')}
+                    >
+                      Remover
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

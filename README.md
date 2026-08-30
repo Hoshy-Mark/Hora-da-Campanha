@@ -85,7 +85,11 @@ Suba `dist/` na Vercel/Netlify e configure as variáveis de ambiente (`VITE_SUPA
 - [x] **Fase 4** — Mapa tático: upload de imagem por campanha (Supabase Storage), tokens de personagens/NPCs/inimigos arrastáveis, posição sincronizada em tempo real, revelação gradual de tokens ocultos (mesmo mecanismo de Habilidades/Itens)
 - [x] **Fase 5** — Rastreador de iniciativa/combate (visível a todos, com entradas ocultáveis pra emboscadas), Notas do Mestre (aba exclusiva do GM) e Segredos por personagem (`character_secrets` — nunca visível a jogadores)
 - [x] **Rolador de Dados** — expressões `NdM+K` (ex: `1d20+5`), log compartilhado da mesa em tempo real, botões rápidos por dado, e "Rolar Iniciativa" no rastreador de combate (rola 1d20 pra cada combatente usando o valor já digitado como modificador)
-- [ ] **Fase futura, não decidida ainda** — motor de fórmulas derivadas no schema (ex: modificadores de D&D, Pilares de Ascensão calculados sozinhos), presença online real via Supabase Presence, deploy em produção
+- [x] **Presença online** — quem está com a aba aberta agora (Supabase Presence, sem tabela/migration), bolinha verde/cinza ao lado de cada nome em "Na mesa"
+- [x] **Deploy em produção** — [hora-da-campanha.vercel.app](https://hora-da-campanha.vercel.app), auto-deploy a cada push no GitHub
+- [x] **Notificações toast** — substituem o texto vermelho simples de erro; também cobrem escritas que antes falhavam em silêncio (nenhum componente conferia `{ error }` da resposta do Supabase)
+- [x] **Mestre remover jogador da mesa** — botão "Remover" em cada linha de "Na mesa" (a permissão já existia via RLS, só faltava a UI)
+- [ ] **Fase futura, não decidida ainda** — motor de fórmulas derivadas no schema (ex: modificadores de D&D, Pilares de Ascensão calculados sozinhos)
 
 ## Nota de arquitetura: não confie só no eco do Realtime
 

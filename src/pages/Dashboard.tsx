@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 interface CampaignRow {
   campaign_id: string;
@@ -16,11 +17,11 @@ interface SystemOption {
 
 export function Dashboard() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [systems, setSystems] = useState<SystemOption[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const [newCampaignName, setNewCampaignName] = useState('');
   const [selectedSystemId, setSelectedSystemId] = useState('');
@@ -37,7 +38,7 @@ export function Dashboard() {
       supabase.from('game_systems').select('id, name').eq('owner_id', user!.id).order('name'),
     ]);
 
-    if (campaignError) setError(campaignError.message);
+    if (campaignError) showToast(campaignError.message, 'error');
     else setCampaigns((campaignData ?? []) as unknown as CampaignRow[]);
 
     const opts = (systemData ?? []) as SystemOption[];
@@ -56,17 +57,17 @@ export function Dashboard() {
     e.preventDefault();
     if (!newCampaignName.trim() || !selectedSystemId) return;
     setBusy(true);
-    setError(null);
     const { data, error } = await supabase.rpc('create_campaign', {
       p_name: newCampaignName.trim(),
       p_game_system_id: selectedSystemId,
     });
     setBusy(false);
     if (error) {
-      setError(error.message);
+      showToast(error.message, 'error');
       return;
     }
     setNewCampaignName('');
+    showToast('Campanha criada!', 'success');
     if (data) navigate(`/campaign/${data.id}`);
   }
 
@@ -74,22 +75,20 @@ export function Dashboard() {
     e.preventDefault();
     if (!inviteCode.trim()) return;
     setBusy(true);
-    setError(null);
     const { data, error } = await supabase.rpc('join_campaign', { p_invite_code: inviteCode.trim() });
     setBusy(false);
     if (error) {
-      setError(error.message);
+      showToast(error.message, 'error');
       return;
     }
     setInviteCode('');
+    showToast('Você entrou na campanha!', 'success');
     if (data) navigate(`/campaign/${data.id}`);
   }
 
   return (
     <div className="dashboard">
       <h1>Suas Campanhas</h1>
-
-      {error && <p className="auth-error">{error}</p>}
 
       <section className="dashboard-actions">
         <form onSubmit={handleCreate} className="inline-form create-campaign-form">
