@@ -7,6 +7,7 @@
 
 import type { SheetData } from './game-system';
 import type { Json } from './json';
+import type { TemplateAbility, TemplateItem } from './monster-template';
 
 type Relationships = { foreignKeyName: string; columns: string[]; isOneToOne?: boolean; referencedRelation: string; referencedColumns: string[] }[];
 
@@ -202,6 +203,42 @@ export interface Database {
           total: number;
         };
         Update: Record<string, never>;
+        Relationships: Relationships;
+      };
+      monster_templates: {
+        Row: {
+          id: string;
+          owner_id: string;
+          game_system_id: string;
+          name: string;
+          is_boss: boolean;
+          sheet_data: SheetData;
+          abilities: TemplateAbility[];
+          items: TemplateItem[];
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          game_system_id: string;
+          name: string;
+          is_boss?: boolean;
+          sheet_data?: SheetData;
+          abilities?: TemplateAbility[];
+          items?: TemplateItem[];
+          notes?: string | null;
+        };
+        Update: Partial<{
+          name: string;
+          is_boss: boolean;
+          sheet_data: SheetData;
+          abilities: TemplateAbility[];
+          items: TemplateItem[];
+          notes: string | null;
+          updated_at: string;
+        }>;
         Relationships: Relationships;
       };
       maps: {

@@ -6,7 +6,7 @@ Todo mundo entra na mesma campanha e vê vida, recursos, itens e habilidades sin
 
 **Em produção:** [hora-da-campanha.vercel.app](https://hora-da-campanha.vercel.app)
 
-**Status:** as 5 fases do roadmap original estão completas — auth, sistemas via JSON, campanhas, ficha de personagem sincronizada, Habilidades/Itens com revelação gradual, mapa tático com tokens arrastáveis, rastreador de iniciativa, Notas do Mestre, Segredos por personagem — mais rolador de dados compartilhado, presença online em tempo real, notificações toast, Mestre remover jogador da mesa, e um motor de fórmulas que calcula campos derivados sozinho (Pilares de Ascensão, modificadores de D&D).
+**Status:** as 5 fases do roadmap original estão completas — auth, sistemas via JSON, campanhas, ficha de personagem sincronizada, Habilidades/Itens com revelação gradual, mapa tático com tokens arrastáveis, rastreador de iniciativa, Notas do Mestre, Segredos por personagem — mais rolador de dados compartilhado, presença online em tempo real, notificações toast, Mestre remover jogador da mesa, um motor de fórmulas que calcula campos derivados sozinho (Pilares de Ascensão, modificadores de D&D), e um Bestiário de moldes de monstro/NPC reaproveitáveis entre campanhas do mesmo sistema.
 
 ## Como o sistema genérico funciona
 
@@ -90,7 +90,8 @@ Suba `dist/` na Vercel/Netlify e configure as variáveis de ambiente (`VITE_SUPA
 - [x] **Notificações toast** — substituem o texto vermelho simples de erro; também cobrem escritas que antes falhavam em silêncio (nenhum componente conferia `{ error }` da resposta do Supabase)
 - [x] **Mestre remover jogador da mesa** — botão "Remover" em cada linha de "Na mesa" (a permissão já existia via RLS, só faltava a UI)
 - [x] **Motor de fórmulas** — campos com `formula` no schema são calculados automaticamente (avaliador de expressões próprio, sem `eval`) e recalculados a cada edição. Pilares de Ascensão de Blade Strands e modificadores de D&D agora são de verdade, não texto digitado.
-- [ ] **Fase futura, não decidida ainda** — nada planejado no momento
+- [x] **Bestiário** — tela **Bestiário** pra criar moldes de monstro/NPC reutilizáveis entre qualquer campanha que use o mesmo sistema (ficha completa via `SheetFieldsEditor`/`ResourceBar`, habilidades e itens embutidos como JSON). Dentro de uma campanha, o Mestre escolhe um molde num seletor ao lado de "+ Criar personagem" e clica "+ Instanciar": vira um personagem novo (NPC, oculto por padrão) com a ficha já preenchida e as habilidades/itens copiados como `character_abilities`/`inventory_items` de verdade (ocultos, revele quando quiser). Requer a migration `005_monster_templates.sql`.
+- [ ] **Editor de mapas por tiles** — montar mapas com quartos/corredores/árvores/dungeons num grid, como alternativa ao upload de imagem — próximo item cogitado, ainda não iniciado
 
 ## Nota de arquitetura: não confie só no eco do Realtime
 

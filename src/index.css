@@ -289,8 +289,15 @@ code, .mono { font-family: 'JetBrains Mono', 'Consolas', monospace; }
 }
 .system-form input:focus, .system-form textarea:focus { outline: none; border-color: var(--accent); }
 .system-form textarea { resize: vertical; min-height: 240px; }
-.system-form .auth-error, .system-form .schema-preview { grid-column: 1 / -1; }
-.system-form button {
+.system-form .auth-error,
+.system-form .schema-preview,
+.system-form .sheet-card,
+.system-form .sheet-sections,
+.system-form .resources-card,
+.system-form .checkbox-label {
+  grid-column: 1 / -1;
+}
+.system-form > button {
   grid-column: 1 / -1;
   justify-self: start;
   background: var(--accent);
@@ -300,8 +307,10 @@ code, .mono { font-family: 'JetBrains Mono', 'Consolas', monospace; }
   font-weight: 600;
   color: var(--accent-ink);
 }
-.system-form button:hover { background: var(--accent-strong); }
-.system-form button:disabled { opacity: 0.5; cursor: default; }
+.system-form > button:hover { background: var(--accent-strong); }
+.system-form > button:disabled { opacity: 0.5; cursor: default; }
+.checkbox-label { display: flex; flex-direction: row; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
+.checkbox-label input { width: auto; }
 
 .schema-preview {
   background: var(--bg);

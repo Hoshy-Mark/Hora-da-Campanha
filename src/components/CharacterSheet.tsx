@@ -6,6 +6,7 @@ import { ResourceBar } from './ResourceBar';
 import { AbilityList } from './AbilityList';
 import { ItemList } from './ItemList';
 import { CharacterSecrets } from './CharacterSecrets';
+import { SheetFieldsEditor } from './SheetFieldsEditor';
 
 interface CharacterRow {
   id: string;
@@ -81,66 +82,7 @@ export function CharacterSheet({ character, schema, editable, isGm }: Props) {
         </div>
       )}
 
-      <div className="sheet-sections">
-        {schema.sections.map((section) => (
-          <div key={section.key} className="sheet-card">
-            <strong className="sheet-card-title">{section.label}</strong>
-            {section.description && <p className="muted sheet-section-desc">{section.description}</p>}
-            <div className="sheet-fields-grid">
-              {section.fields.map((field) =>
-                field.formula ? (
-                  <label key={field.key} className="sheet-field">
-                    <span>{field.label}</span>
-                    <div className="computed-field" title={`Calculado: ${field.formula}`}>
-                      {data.fields[field.key] ?? 0}
-                    </div>
-                    <small className="muted mono">= {field.formula}</small>
-                  </label>
-                ) : (
-                  <label key={field.key} className="sheet-field">
-                    <span>{field.label}</span>
-                    {field.type === 'select' ? (
-                      <select
-                        disabled={!editable}
-                        value={String(data.fields[field.key] ?? '')}
-                        onChange={(e) => setField(field.key, e.target.value)}
-                      >
-                        <option value="" disabled>
-                          —
-                        </option>
-                        {field.options?.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                    ) : field.type === 'longtext' ? (
-                      <textarea
-                        rows={3}
-                        disabled={!editable}
-                        value={String(data.fields[field.key] ?? '')}
-                        onChange={(e) => setField(field.key, e.target.value)}
-                      />
-                    ) : (
-                      <input
-                        type={field.type === 'number' ? 'number' : 'text'}
-                        disabled={!editable}
-                        min={field.min}
-                        max={field.max}
-                        value={data.fields[field.key] ?? (field.type === 'number' ? 0 : '')}
-                        onChange={(e) =>
-                          setField(field.key, field.type === 'number' ? Number(e.target.value) : e.target.value)
-                        }
-                      />
-                    )}
-                    {field.helpText && <small className="muted">{field.helpText}</small>}
-                  </label>
-                )
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+      <SheetFieldsEditor schema={schema} data={data} editable={editable} onFieldChange={setField} />
 
       <AbilityList characterId={character.id} campaignId={character.campaign_id} isGm={isGm} />
       <ItemList characterId={character.id} campaignId={character.campaign_id} isGm={isGm} />

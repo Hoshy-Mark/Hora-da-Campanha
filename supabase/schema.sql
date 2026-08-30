@@ -513,6 +513,34 @@ create policy "dice_rolls_insert_own"
   with check (public.is_campaign_member(campaign_id) and user_id = auth.uid());
 
 -- =====================================================================
+-- MONSTER_TEMPLATES — Bestiário: moldes de monstro/NPC reutilizáveis
+-- entre campanhas, dono é o usuário (igual a game_systems). `abilities`
+-- e `items` ficam embutidos como JSON — viram character_abilities e
+-- inventory_items de verdade só na hora de instanciar numa campanha.
+-- =====================================================================
+create table public.monster_templates (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references public.profiles(id) on delete cascade,
+  game_system_id uuid not null references public.game_systems(id) on delete cascade,
+  name text not null,
+  is_boss boolean not null default false,
+  sheet_data jsonb not null default '{"fields": {}, "resources": {}}'::jsonb,
+  abilities jsonb not null default '[]'::jsonb,
+  items jsonb not null default '[]'::jsonb,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.monster_templates enable row level security;
+
+create policy "monster_templates_owner_all"
+  on public.monster_templates for all
+  to authenticated
+  using (owner_id = auth.uid())
+  with check (owner_id = auth.uid());
+
+-- =====================================================================
 -- MAPS — imagens de mapa por campanha, guardadas no bucket de Storage
 -- "maps" (criado mais abaixo). `image_path` é o caminho dentro do bucket,
 -- no formato "{campaign_id}/{arquivo}" — as policies de Storage abaixo
@@ -645,3 +673,4 @@ alter publication supabase_realtime add table public.initiative_entries;
 alter publication supabase_realtime add table public.gm_notes;
 alter publication supabase_realtime add table public.character_secrets;
 alter publication supabase_realtime add table public.dice_rolls;
+alter publication supabase_realtime add table public.monster_templates;

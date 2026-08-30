@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { emptySheetData, type GameSystemSchema, type SheetData } from '../types/game-system';
+import type { TemplateAbility, TemplateItem } from '../types/monster-template';
 import { CharacterCard } from '../components/CharacterCard';
 import { CharacterSheet } from '../components/CharacterSheet';
 import { MapBoard } from '../components/MapBoard';
@@ -37,6 +38,15 @@ interface CharacterRow {
   is_npc: boolean;
 }
 
+interface MonsterTemplateRow {
+  id: string;
+  name: string;
+  is_boss: boolean;
+  sheet_data: SheetData;
+  abilities: TemplateAbility[];
+  items: TemplateItem[];
+}
+
 export function CampaignRoom() {
   const { id: campaignId } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -51,6 +61,10 @@ export function CampaignRoom() {
   const [newCharName, setNewCharName] = useState('');
   const [newCharOwnerId, setNewCharOwnerId] = useState('');
   const [creating, setCreating] = useState(false);
+
+  const [templates, setTemplates] = useState<MonsterTemplateRow[]>([]);
+  const [templateId, setTemplateId] = useState('');
+  const [instantiating, setInstantiating] = useState(false);
 
   const myRole = members.find((m) => m.user_id === user?.id)?.role;
   const isGm = myRole === 'gm';
@@ -150,6 +164,85 @@ export function CampaignRoom() {
       supabase.removeChannel(charChannel);
     };
   }, [campaignId]);
+
+  useEffect(() => {
+    if (!isGm || !user || !campaign?.game_system_id) {
+      setTemplates([]);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('monster_templates')
+      .select('id, name, is_boss, sheet_data, abilities, items')
+      .eq('owner_id', user.id)
+      .eq('game_system_id', campaign.game_system_id)
+      .order('name', { ascending: true })
+      .then(({ data }) => {
+        if (!cancelled) setTemplates((data ?? []) as unknown as MonsterTemplateRow[]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isGm, user, campaign?.game_system_id]);
+
+  async function handleInstantiateTemplate() {
+    if (!campaignId || !templateId) return;
+    const template = templates.find((t) => t.id === templateId);
+    if (!template) return;
+    setInstantiating(true);
+
+    const { data: character, error } = await supabase
+      .from('characters')
+      .insert({
+        campaign_id: campaignId,
+        owner_id: null,
+        name: template.name,
+        sheet_data: template.sheet_data,
+        is_npc: true,
+      })
+      .select('id, campaign_id, owner_id, name, sheet_data, is_npc')
+      .single();
+
+    if (error || !character) {
+      setInstantiating(false);
+      showToast(error?.message ?? 'Erro ao instanciar molde.', 'error');
+      return;
+    }
+
+    setCharacters((prev) => (prev.some((c) => c.id === character.id) ? prev : [...prev, character as CharacterRow]));
+
+    if (template.abilities.length > 0) {
+      await supabase.from('character_abilities').insert(
+        template.abilities.map((a) => ({
+          character_id: character.id,
+          campaign_id: campaignId,
+          name: a.name,
+          category: a.category ?? null,
+          cost: a.cost ?? null,
+          tier: a.tier ?? null,
+          description: a.description ?? null,
+          visible_to_player: false,
+        }))
+      );
+    }
+
+    if (template.items.length > 0) {
+      await supabase.from('inventory_items').insert(
+        template.items.map((it) => ({
+          campaign_id: campaignId,
+          character_id: character.id,
+          name: it.name,
+          description: it.description ?? null,
+          quantity: it.quantity ?? 1,
+          visible_to_player: false,
+        }))
+      );
+    }
+
+    setInstantiating(false);
+    setTemplateId('');
+    showToast(`${template.name} instanciado a partir do molde!`, 'success');
+  }
 
   async function handleSelectMap(mapId: string | null) {
     if (!campaignId) return;
@@ -273,6 +366,23 @@ export function CampaignRoom() {
                   + Criar personagem
                 </button>
               </form>
+            )}
+
+            {isGm && templates.length > 0 && (
+              <div className="create-character-form instantiate-template-form">
+                <select value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
+                  <option value="">Instanciar do Bestiário…</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.is_boss ? '★ ' : ''}
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" disabled={!templateId || instantiating} onClick={handleInstantiateTemplate}>
+                  + Instanciar
+                </button>
+              </div>
             )}
 
             {characters.length === 0 ? (
