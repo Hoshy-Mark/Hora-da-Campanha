@@ -442,6 +442,7 @@ create table public.gm_notes (
   character_id uuid references public.characters(id) on delete cascade, -- null = nota geral da campanha
   title text not null,
   content text,
+  category text not null default 'Geral', -- texto livre com sugestões na UI (Geral, NPC, Local, Facção, Missão)
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -751,6 +752,7 @@ create table public.map_tokens (
   pos_x numeric not null default 50,
   pos_y numeric not null default 50,
   visible_to_player boolean not null default true,
+  vision_radius integer, -- null = usa o padrão do app (AUTO_VISION_RADIUS) em vez de um valor fixo
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

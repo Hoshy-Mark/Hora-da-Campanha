@@ -14,6 +14,7 @@ export interface TokenRow {
   pos_x: number;
   pos_y: number;
   visible_to_player: boolean;
+  vision_radius: number | null;
 }
 
 const TYPE_COLOR: Record<TokenRow['token_type'], string> = {

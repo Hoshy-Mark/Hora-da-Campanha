@@ -17,9 +17,10 @@ interface Props {
   selected: boolean;
   onSelect: () => void;
   onDelete?: () => void;
+  onDuplicate?: () => void;
 }
 
-export function CharacterCard({ character, schema, ownerName, selected, onSelect, onDelete }: Props) {
+export function CharacterCard({ character, schema, ownerName, selected, onSelect, onDelete, onDuplicate }: Props) {
   const barResources = schema.resources.filter((r) => r.type === 'bar');
   const avatarUrl = character.avatar_path
     ? supabase.storage.from('maps').getPublicUrl(character.avatar_path).data.publicUrl
@@ -51,6 +52,16 @@ export function CharacterCard({ character, schema, ownerName, selected, onSelect
           })}
         </div>
       </button>
+      {onDuplicate && (
+        <button
+          type="button"
+          className="link-btn character-card-delete"
+          title="Duplicar personagem"
+          onClick={onDuplicate}
+        >
+          ⧉
+        </button>
+      )}
       {onDelete && (
         <button type="button" className="link-btn danger character-card-delete" onClick={onDelete}>
           ✕

@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { MapToken, type TokenRow } from './MapToken';
 import { TileMapBoard } from './TileMapBoard';
 import {
+  AUTO_VISION_RADIUS,
   BUILTIN_TILE_CATEGORIES,
   BUILTIN_TILES,
   customTileKey,
@@ -15,7 +16,7 @@ import {
   type PaintTool,
   type TileMapData,
 } from '../types/tilemap';
-import { QUICK_STATUS_EFFECTS, iconForStatus } from '../types/status-effects';
+import { QUICK_STATUS_EFFECTS, descriptionForStatus, iconForStatus } from '../types/status-effects';
 import { logActivity } from '../lib/activity';
 import type { GameSystemSchema, SheetData } from '../types/game-system';
 import { CombatantResources } from './CombatantResources';
@@ -100,6 +101,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   const [newTokenLabel, setNewTokenLabel] = useState('');
   const [newTokenType, setNewTokenType] = useState<TokenRow['token_type']>('enemy');
   const [newTokenCharacterId, setNewTokenCharacterId] = useState('');
+  const [newTokenVisionRadius, setNewTokenVisionRadius] = useState('');
   const newTokenAvatarRef = useRef<HTMLInputElement>(null);
   const [avatarUploadingId, setAvatarUploadingId] = useState<string | null>(null);
   const [statusEditorTokenId, setStatusEditorTokenId] = useState<string | null>(null);
@@ -253,7 +255,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     async function loadTokens() {
       const { data } = await supabase
         .from('map_tokens')
-        .select('id, map_id, campaign_id, character_id, label, token_type, color, image_path, status_effects, pos_x, pos_y, visible_to_player')
+        .select('id, map_id, campaign_id, character_id, label, token_type, color, image_path, status_effects, pos_x, pos_y, visible_to_player, vision_radius')
         .eq('map_id', currentMapId!);
       if (!cancelled) setTokens((data ?? []) as unknown as TokenRow[]);
     }
@@ -591,8 +593,9 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
         pos_x: 50,
         pos_y: 50,
         visible_to_player: newTokenType !== 'enemy',
+        vision_radius: newTokenVisionRadius.trim() ? Number(newTokenVisionRadius) : null,
       })
-      .select('id, map_id, campaign_id, character_id, label, token_type, color, image_path, status_effects, pos_x, pos_y, visible_to_player')
+      .select('id, map_id, campaign_id, character_id, label, token_type, color, image_path, status_effects, pos_x, pos_y, visible_to_player, vision_radius')
       .single();
 
     if (error) {
@@ -602,6 +605,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     if (data) setTokens((prev) => (prev.some((t) => t.id === data.id) ? prev : [...prev, data as TokenRow]));
     setNewTokenLabel('');
     setNewTokenCharacterId('');
+    setNewTokenVisionRadius('');
     if (newTokenAvatarRef.current) newTokenAvatarRef.current.value = '';
   }
 
@@ -635,7 +639,13 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     // por célula conforme o grupo explora.
     const token = tokens.find((t) => t.id === id);
     if (token?.token_type === 'player' && currentMap?.kind === 'tilemap' && currentMap.tile_data) {
-      const nextTileData = revealFogAroundPosition(currentMap.tile_data, pos_x, pos_y, mapCustomTiles);
+      const nextTileData = revealFogAroundPosition(
+        currentMap.tile_data,
+        pos_x,
+        pos_y,
+        mapCustomTiles,
+        token.vision_radius ?? AUTO_VISION_RADIUS
+      );
       if (nextTileData) handleTileChange(currentMap.id, nextTileData);
     }
   }
@@ -646,6 +656,13 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
       .from('map_tokens')
       .update({ visible_to_player: !t.visible_to_player })
       .eq('id', t.id);
+    if (error) showToast(error.message, 'error');
+  }
+
+  async function handleSetTokenVisionRadius(t: TokenRow, raw: string) {
+    const vision_radius = raw.trim() ? Number(raw) : null;
+    setTokens((prev) => prev.map((x) => (x.id === t.id ? { ...x, vision_radius } : x)));
+    const { error } = await supabase.from('map_tokens').update({ vision_radius }).eq('id', t.id);
     if (error) showToast(error.message, 'error');
   }
 
@@ -1118,7 +1135,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                 {(popoverToken.status_effects.length > 0 || effectiveIsGm) && (
                   <div className="map-token-popover-statuses">
                     {popoverToken.status_effects.map((s) => (
-                      <span key={s} className="tag status-tag">
+                      <span key={s} className="tag status-tag" title={descriptionForStatus(s)}>
                         {iconForStatus(s)} {s}
                         {effectiveIsGm && (
                           <button
@@ -1141,6 +1158,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                         key={s.key}
                         type="button"
                         className="tile-palette-btn"
+                        title={s.description}
                         disabled={popoverToken.status_effects.includes(s.key)}
                         onClick={() => addTokenStatus(popoverToken, s.key)}
                       >
@@ -1177,6 +1195,17 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                         <option value="enemy">Inimigo</option>
                         <option value="other">Outro</option>
                       </select>
+                      {newTokenType === 'player' && (
+                        <input
+                          type="number"
+                          className="qty-input"
+                          min={0}
+                          placeholder={`Visão (padrão ${AUTO_VISION_RADIUS})`}
+                          title="Raio de visão (células) — em branco usa o padrão"
+                          value={newTokenVisionRadius}
+                          onChange={(e) => setNewTokenVisionRadius(e.target.value)}
+                        />
+                      )}
                       <input
                         ref={newTokenAvatarRef}
                         type="file"
@@ -1199,7 +1228,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                                 <span className="tag">{TYPE_LABEL[t.token_type]}</span>
                                 {!t.visible_to_player && <span className="tag hidden-tag">Oculto do jogador</span>}
                                 {t.status_effects.map((s) => (
-                                  <span key={s} className="tag status-tag">
+                                  <span key={s} className="tag status-tag" title={descriptionForStatus(s)}>
                                     {iconForStatus(s)} {s}
                                     <button
                                       type="button"
@@ -1212,6 +1241,19 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                                   </span>
                                 ))}
                               </div>
+                              {t.token_type === 'player' && (
+                                <label className="token-vision-radius">
+                                  Visão:
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    placeholder={String(AUTO_VISION_RADIUS)}
+                                    title="Raio de visão (células) — em branco usa o padrão"
+                                    value={t.vision_radius ?? ''}
+                                    onChange={(e) => handleSetTokenVisionRadius(t, e.target.value)}
+                                  />
+                                </label>
+                              )}
                               {statusEditorTokenId === t.id && (
                                 <div className="status-editor">
                                   {QUICK_STATUS_EFFECTS.map((s) => (
@@ -1219,6 +1261,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                                       key={s.key}
                                       type="button"
                                       className="tile-palette-btn"
+                                      title={s.description}
                                       disabled={t.status_effects.includes(s.key)}
                                       onClick={() => addTokenStatus(t, s.key)}
                                     >

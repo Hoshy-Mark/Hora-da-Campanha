@@ -382,6 +382,52 @@ export function CampaignRoom() {
     if (error) showToast(error.message, 'error');
   }
 
+  async function handleDuplicateCharacter(source: CharacterRow) {
+    if (!campaignId) return;
+    const [{ data: abilities }, { data: items }] = await Promise.all([
+      supabase
+        .from('character_abilities')
+        .select('name, category, cost, tier, description, visible_to_player')
+        .eq('character_id', source.id),
+      supabase
+        .from('inventory_items')
+        .select('name, description, quantity, visible_to_player')
+        .eq('character_id', source.id),
+    ]);
+
+    const { data: character, error } = await supabase
+      .from('characters')
+      .insert({
+        campaign_id: campaignId,
+        owner_id: null,
+        name: `${source.name} (cópia)`,
+        sheet_data: source.sheet_data,
+        is_npc: true,
+      })
+      .select('id, campaign_id, owner_id, name, sheet_data, is_npc, avatar_path')
+      .single();
+
+    if (error || !character) {
+      showToast(error?.message ?? 'Erro ao duplicar personagem.', 'error');
+      return;
+    }
+
+    if (abilities && abilities.length > 0) {
+      await supabase.from('character_abilities').insert(
+        abilities.map((a) => ({ ...a, character_id: character.id, campaign_id: campaignId }))
+      );
+    }
+    if (items && items.length > 0) {
+      await supabase.from('inventory_items').insert(
+        items.map((it) => ({ ...it, character_id: character.id, campaign_id: campaignId }))
+      );
+    }
+
+    setCharacters((prev) => (prev.some((c) => c.id === character.id) ? prev : [...prev, character as CharacterRow]));
+    showToast('Personagem duplicado!', 'success');
+    logActivity(campaignId, `${source.name} foi duplicado.`);
+  }
+
   async function handleRemoveMember(userId: string, name: string) {
     if (!campaignId) return;
     if (!confirm(`Remover ${name} da campanha? Ele(a) precisará de um novo convite pra voltar.`)) return;
@@ -599,6 +645,7 @@ export function CampaignRoom() {
                       setActiveView('sheet');
                     }}
                     onDelete={isGm || c.owner_id === user?.id ? () => handleDeleteCharacter(c.id) : undefined}
+                    onDuplicate={isGm ? () => handleDuplicateCharacter(c) : undefined}
                   />
                 ))}
               </div>

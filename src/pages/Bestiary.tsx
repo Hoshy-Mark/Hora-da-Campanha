@@ -213,6 +213,21 @@ export function Bestiary() {
     else showToast('Molde apagado.', 'success');
   }
 
+  async function handleDuplicate(t: TemplateRow) {
+    const { error } = await supabase.from('monster_templates').insert({
+      owner_id: t.owner_id,
+      game_system_id: t.game_system_id,
+      name: `${t.name} (cópia)`,
+      is_boss: t.is_boss,
+      sheet_data: t.sheet_data,
+      abilities: t.abilities,
+      items: t.items,
+      notes: t.notes,
+    });
+    if (error) showToast(error.message, 'error');
+    else showToast('Molde duplicado!', 'success');
+  }
+
   function handleImportJsonChange(value: string) {
     setImportRawJson(value);
     if (!value.trim()) {
@@ -617,6 +632,9 @@ export function Bestiary() {
                 <div className="reveal-item-actions">
                   <button className="link-btn" onClick={() => startEdit(t)}>
                     Editar
+                  </button>
+                  <button className="link-btn" onClick={() => handleDuplicate(t)}>
+                    Duplicar
                   </button>
                   <button className="link-btn danger" onClick={() => handleDelete(t.id)}>
                     Apagar

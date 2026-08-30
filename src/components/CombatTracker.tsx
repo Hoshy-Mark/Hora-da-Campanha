@@ -4,7 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { formatExpression, rollDice } from '../lib/dice';
 import { logActivity } from '../lib/activity';
 import type { GameSystemSchema, SheetData } from '../types/game-system';
-import { QUICK_STATUS_EFFECTS, iconForStatus } from '../types/status-effects';
+import { QUICK_STATUS_EFFECTS, descriptionForStatus, iconForStatus } from '../types/status-effects';
 import { CombatantResources } from './CombatantResources';
 
 interface Entry {
@@ -317,7 +317,7 @@ export function CombatTracker({ campaignId, isGm, characters, schema, myUserId }
                     {e.is_defeated && <span className="tag">Derrotado</span>}
                     {!e.visible_to_player && isGm && <span className="tag hidden-tag">Oculto</span>}
                     {e.status_effects.map((s) => (
-                      <span key={s} className="tag status-tag">
+                      <span key={s} className="tag status-tag" title={descriptionForStatus(s)}>
                         {iconForStatus(s)} {s}
                         {isGm && (
                           <button type="button" className="status-tag-remove" onClick={() => removeStatus(e, s)}>
@@ -352,6 +352,7 @@ export function CombatTracker({ campaignId, isGm, characters, schema, myUserId }
                         key={s.key}
                         type="button"
                         className="tile-palette-btn"
+                        title={s.description}
                         disabled={e.status_effects.includes(s.key)}
                         onClick={() => addStatus(e, s.key)}
                       >

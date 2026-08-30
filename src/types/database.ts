@@ -150,11 +150,19 @@ export interface Database {
           character_id: string | null;
           title: string;
           content: string | null;
+          category: string;
           created_at: string;
           updated_at: string;
         };
-        Insert: { id?: string; campaign_id: string; character_id?: string | null; title: string; content?: string | null };
-        Update: Partial<{ title: string; content: string | null; updated_at: string }>;
+        Insert: {
+          id?: string;
+          campaign_id: string;
+          character_id?: string | null;
+          title: string;
+          content?: string | null;
+          category?: string;
+        };
+        Update: Partial<{ title: string; content: string | null; category: string; updated_at: string }>;
         Relationships: Relationships;
       };
       initiative_entries: {
@@ -384,6 +392,7 @@ export interface Database {
           pos_x: number;
           pos_y: number;
           visible_to_player: boolean;
+          vision_radius: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -400,6 +409,7 @@ export interface Database {
           pos_x?: number;
           pos_y?: number;
           visible_to_player?: boolean;
+          vision_radius?: number | null;
         };
         Update: Partial<{
           label: string;
@@ -410,6 +420,7 @@ export interface Database {
           pos_x: number;
           pos_y: number;
           visible_to_player: boolean;
+          vision_radius: number | null;
         }>;
         Relationships: Relationships;
       };
