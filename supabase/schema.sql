@@ -618,6 +618,47 @@ create policy "catalog_entries_owner_all"
   with check (owner_id = auth.uid());
 
 -- =====================================================================
+-- TILE_DEFINITIONS — tileset customizável: tiles com imagem própria,
+-- dono é o usuário mas LEITURA é liberada pra qualquer autenticado (um
+-- mapa pintado pelo Mestre com um tile customizado precisa renderizar
+-- certo pros jogadores também). Só criar/editar/apagar é do dono.
+-- =====================================================================
+create table public.tile_definitions (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references public.profiles(id) on delete cascade,
+  label text not null,
+  category text not null default 'Meus tiles',
+  color text,
+  image_path text,
+  interactive boolean not null default false,
+  alt_color text,
+  alt_image_path text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.tile_definitions enable row level security;
+
+create policy "tile_definitions_select_any_authenticated"
+  on public.tile_definitions for select
+  to authenticated
+  using (true);
+
+create policy "tile_definitions_insert_owner"
+  on public.tile_definitions for insert
+  to authenticated
+  with check (owner_id = auth.uid());
+
+create policy "tile_definitions_update_owner"
+  on public.tile_definitions for update
+  to authenticated
+  using (owner_id = auth.uid());
+
+create policy "tile_definitions_delete_owner"
+  on public.tile_definitions for delete
+  to authenticated
+  using (owner_id = auth.uid());
+
+-- =====================================================================
 -- MAPS — mapas de uma campanha, em dois formatos possíveis (`kind`):
 -- 'image' é upload de PNG/JPEG pro bucket de Storage "maps" (criado mais
 -- abaixo), com `image_path` no formato "{campaign_id}/{arquivo}" — as
@@ -770,6 +811,29 @@ create policy "handouts_bucket_delete_gm"
   using (bucket_id = 'handouts' and public.is_campaign_gm((storage.foldername(name))[1]::uuid));
 
 -- =====================================================================
+-- STORAGE — bucket público "tiles" pras imagens de tile customizado.
+-- Caminho no formato "{owner_id}/{arquivo}" — dono é quem pode subir/
+-- remover, leitura é liberada geral (precisa renderizar pros jogadores).
+-- =====================================================================
+insert into storage.buckets (id, name, public)
+values ('tiles', 'tiles', true)
+on conflict (id) do nothing;
+
+create policy "tiles_bucket_read_public"
+  on storage.objects for select
+  using (bucket_id = 'tiles');
+
+create policy "tiles_bucket_insert_owner"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'tiles' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "tiles_bucket_delete_owner"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'tiles' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- =====================================================================
 -- REALTIME — habilita replicação para as tabelas que a UI sincroniza ao vivo
 -- =====================================================================
 alter publication supabase_realtime add table public.characters;
@@ -786,3 +850,4 @@ alter publication supabase_realtime add table public.dice_rolls;
 alter publication supabase_realtime add table public.monster_templates;
 alter publication supabase_realtime add table public.handouts;
 alter publication supabase_realtime add table public.catalog_entries;
+alter publication supabase_realtime add table public.tile_definitions;

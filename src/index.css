@@ -712,8 +712,13 @@ h2 {
 }
 .map-kind-tabs button.active { border-color: var(--accent); color: var(--accent); }
 
+.tile-palette-groups { display: flex; flex-direction: column; gap: 10px; }
+.tile-palette-group { display: flex; flex-direction: column; gap: 6px; }
+.tile-palette-group-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+
 .tile-palette { display: flex; flex-wrap: wrap; gap: 6px; }
 .tile-palette-btn {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -725,13 +730,26 @@ h2 {
   color: var(--text);
 }
 .tile-palette-btn.active { border-color: var(--accent); color: var(--accent); }
+.tile-palette-btn-delete {
+  margin-left: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+.tile-palette-btn-delete:hover { color: var(--danger); }
 .tile-swatch {
   width: 14px;
   height: 14px;
   border-radius: 3px;
   border: 1px solid var(--border-strong);
   flex: none;
+  background-repeat: no-repeat;
 }
+
+.custom-tile-form { margin-top: 8px; }
+.custom-tile-color-row { display: flex; align-items: center; gap: 8px; }
+.custom-tile-color-row input[type="color"] { width: 40px; height: 28px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: none; }
 
 .tile-map-grid {
   display: grid;
@@ -741,6 +759,17 @@ h2 {
 }
 .tile-cell { position: relative; touch-action: none; cursor: pointer; }
 .tile-cell-measure { outline: 2px solid var(--accent); outline-offset: -2px; z-index: 1; }
+.tile-cell-interactive::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.5);
+}
 .tile-measure-badge {
   position: absolute;
   bottom: 100%;

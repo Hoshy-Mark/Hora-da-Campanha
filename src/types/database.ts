@@ -248,6 +248,41 @@ export interface Database {
         }>;
         Relationships: Relationships;
       };
+      tile_definitions: {
+        Row: {
+          id: string;
+          owner_id: string;
+          label: string;
+          category: string;
+          color: string | null;
+          image_path: string | null;
+          interactive: boolean;
+          alt_color: string | null;
+          alt_image_path: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          label: string;
+          category?: string;
+          color?: string | null;
+          image_path?: string | null;
+          interactive?: boolean;
+          alt_color?: string | null;
+          alt_image_path?: string | null;
+        };
+        Update: Partial<{
+          label: string;
+          category: string;
+          color: string | null;
+          image_path: string | null;
+          interactive: boolean;
+          alt_color: string | null;
+          alt_image_path: string | null;
+        }>;
+        Relationships: Relationships;
+      };
       monster_templates: {
         Row: {
           id: string;

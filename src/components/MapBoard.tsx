@@ -5,14 +5,14 @@ import { useToast } from '../context/ToastContext';
 import { MapToken, type TokenRow } from './MapToken';
 import { TileMapBoard } from './TileMapBoard';
 import {
+  BUILTIN_TILE_CATEGORIES,
+  BUILTIN_TILES,
+  customTileKey,
   emptyFog,
   emptyTileMap,
-  TILE_COLOR,
-  TILE_LABEL,
-  TILE_TYPES,
+  type CustomTileRow,
   type PaintTool,
   type TileMapData,
-  type TileType,
 } from '../types/tilemap';
 import { QUICK_STATUS_EFFECTS, iconForStatus } from '../types/status-effects';
 import type { GameSystemSchema, SheetData } from '../types/game-system';
@@ -73,9 +73,20 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [tilemapCols, setTilemapCols] = useState(14);
   const [tilemapRows, setTilemapRows] = useState(10);
-  const [tileTool, setTileTool] = useState<TileType>('wall');
-  const [tileMode, setTileMode] = useState<'terrain' | 'fog' | 'measure'>('terrain');
+  const [tileTool, setTileTool] = useState<string>('wall');
+  const [tileMode, setTileMode] = useState<'terrain' | 'fog' | 'measure' | 'interact'>('terrain');
   const [fogBrush, setFogBrush] = useState(true);
+  const [myCustomTiles, setMyCustomTiles] = useState<CustomTileRow[]>([]);
+  const [mapCustomTiles, setMapCustomTiles] = useState<CustomTileRow[]>([]);
+  const [showCustomTileForm, setShowCustomTileForm] = useState(false);
+  const [customTileLabel, setCustomTileLabel] = useState('');
+  const [customTileCategory, setCustomTileCategory] = useState('Meus tiles');
+  const [customTileColor, setCustomTileColor] = useState('#4a4436');
+  const [customTileInteractive, setCustomTileInteractive] = useState(false);
+  const [customTileAltColor, setCustomTileAltColor] = useState('#c9a060');
+  const [savingCustomTile, setSavingCustomTile] = useState(false);
+  const customTileImageRef = useRef<HTMLInputElement>(null);
+  const customTileAltImageRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
@@ -263,9 +274,89 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     };
   }, [currentMapId]);
 
+  // A biblioteca completa de tiles customizados do Mestre (pra paleta e
+  // pro painel de gerenciar) — só ele usa isto, então só busca quando
+  // for o Mestre de verdade (não durante "ver como jogador").
+  useEffect(() => {
+    if (!isGm || !myUserId) {
+      setMyCustomTiles([]);
+      return;
+    }
+    let cancelled = false;
+
+    async function load() {
+      const { data } = await supabase
+        .from('tile_definitions')
+        .select('id, owner_id, label, category, color, image_path, interactive, alt_color, alt_image_path')
+        .eq('owner_id', myUserId!)
+        .order('label', { ascending: true });
+      if (!cancelled) setMyCustomTiles((data ?? []) as unknown as CustomTileRow[]);
+    }
+
+    load();
+
+    const channel = supabase
+      .channel(`tile-definitions-${myUserId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tile_definitions', filter: `owner_id=eq.${myUserId}` },
+        () => {
+          if (!cancelled) load();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [isGm, myUserId]);
+
+  // Os tiles customizados de verdade usados no mapa atual — buscado à
+  // parte de myCustomTiles porque QUALQUER pessoa vendo o mapa (Mestre
+  // ou jogador) precisa resolver a cor/imagem de uma célula já pintada,
+  // mesmo que não seja dono de nada.
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const key of currentMap?.tile_data?.tiles ?? []) {
+      if (key.startsWith('custom:')) ids.add(key.slice('custom:'.length));
+    }
+    if (ids.size === 0) {
+      setMapCustomTiles([]);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('tile_definitions')
+      .select('id, owner_id, label, category, color, image_path, interactive, alt_color, alt_image_path')
+      .in('id', Array.from(ids))
+      .then(({ data }) => {
+        if (!cancelled) setMapCustomTiles((data ?? []) as unknown as CustomTileRow[]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentMap?.tile_data?.tiles]);
+
   function publicUrlFor(path: string) {
     return supabase.storage.from('maps').getPublicUrl(path).data.publicUrl;
   }
+
+  function publicTileUrlFor(path: string) {
+    return supabase.storage.from('tiles').getPublicUrl(path).data.publicUrl;
+  }
+
+  // Merge dos dois: paleta de pintura mostra os do Mestre (myCustomTiles,
+  // que cobre tudo que ele pode pintar, incluindo tiles ainda não usados
+  // em lugar nenhum); a renderização do grid usa mapCustomTiles + os
+  // dela mesma via resolveTile, então um tile que já está pintado
+  // sempre resolve mesmo se quem olha não for o dono.
+  const allKnownCustomTiles = (() => {
+    const map = new Map<string, CustomTileRow>();
+    for (const t of mapCustomTiles) map.set(t.id, t);
+    for (const t of myCustomTiles) map.set(t.id, t);
+    return Array.from(map.values());
+  })();
 
   async function handleUpload(e: FormEvent) {
     e.preventDefault();
@@ -374,7 +465,67 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
       ? { mode: 'terrain', tile: tileTool }
       : tileMode === 'fog'
         ? { mode: 'fog', reveal: fogBrush }
-        : { mode: 'measure' };
+        : tileMode === 'interact'
+          ? { mode: 'interact' }
+          : { mode: 'measure' };
+
+  async function handleCreateCustomTile(e: FormEvent) {
+    e.preventDefault();
+    if (!myUserId || !customTileLabel.trim()) return;
+    setSavingCustomTile(true);
+
+    async function uploadOne(file: File | undefined): Promise<string | null> {
+      if (!file) return null;
+      const ext = file.name.split('.').pop() || 'png';
+      const path = `${myUserId}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from('tiles').upload(path, file);
+      if (error) throw error;
+      return path;
+    }
+
+    try {
+      const imagePath = await uploadOne(customTileImageRef.current?.files?.[0]);
+      const altImagePath = customTileInteractive ? await uploadOne(customTileAltImageRef.current?.files?.[0]) : null;
+
+      const { data, error } = await supabase
+        .from('tile_definitions')
+        .insert({
+          owner_id: myUserId,
+          label: customTileLabel.trim(),
+          category: customTileCategory.trim() || 'Meus tiles',
+          color: imagePath ? null : customTileColor,
+          image_path: imagePath,
+          interactive: customTileInteractive,
+          alt_color: customTileInteractive && !altImagePath ? customTileAltColor : null,
+          alt_image_path: altImagePath,
+        })
+        .select('id, owner_id, label, category, color, image_path, interactive, alt_color, alt_image_path')
+        .single();
+      if (error) throw error;
+
+      // Não espera o eco do Realtime — a paleta precisa mostrar o tile
+      // recém-criado na hora, mesmo tratando-se de uma tela que o
+      // Mestre acabou de abrir.
+      if (data) setMyCustomTiles((prev) => (prev.some((t) => t.id === data.id) ? prev : [...prev, data as CustomTileRow]));
+      showToast('Tile customizado criado!', 'success');
+      setCustomTileLabel('');
+      setCustomTileInteractive(false);
+      if (customTileImageRef.current) customTileImageRef.current.value = '';
+      if (customTileAltImageRef.current) customTileAltImageRef.current.value = '';
+      setShowCustomTileForm(false);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Erro ao criar tile.', 'error');
+    } finally {
+      setSavingCustomTile(false);
+    }
+  }
+
+  async function handleDeleteCustomTile(tile: CustomTileRow) {
+    if (!confirm(`Apagar o tile "${tile.label}"? Células já pintadas com ele ficam sem imagem/cor.`)) return;
+    setMyCustomTiles((prev) => prev.filter((t) => t.id !== tile.id));
+    const { error } = await supabase.from('tile_definitions').delete().eq('id', tile.id);
+    if (error) showToast(error.message, 'error');
+  }
 
   async function uploadTokenAvatar(file: File): Promise<string | null> {
     const ext = file.name.split('.').pop() || 'png';
@@ -600,25 +751,147 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                 <button type="button" className={tileMode === 'fog' ? 'active' : ''} onClick={() => setTileMode('fog')}>
                   Névoa de guerra
                 </button>
+                <button type="button" className={tileMode === 'interact' ? 'active' : ''} onClick={() => setTileMode('interact')}>
+                  Interagir
+                </button>
                 <button type="button" className={tileMode === 'measure' ? 'active' : ''} onClick={() => setTileMode('measure')}>
                   Medir
                 </button>
               </div>
 
               {tileMode === 'terrain' ? (
-                <div className="tile-palette">
-                  {TILE_TYPES.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      className={`tile-palette-btn ${tileTool === t ? 'active' : ''}`}
-                      onClick={() => setTileTool(t)}
-                      title={TILE_LABEL[t]}
-                    >
-                      <span className="tile-swatch" style={{ background: TILE_COLOR[t] }} />
-                      {TILE_LABEL[t]}
-                    </button>
+                <div className="tile-palette-groups">
+                  {BUILTIN_TILE_CATEGORIES.map((cat) => (
+                    <div key={cat} className="tile-palette-group">
+                      <span className="tile-palette-group-label">{cat}</span>
+                      <div className="tile-palette">
+                        {BUILTIN_TILES.filter((t) => t.category === cat).map((t) => (
+                          <button
+                            key={t.key}
+                            type="button"
+                            className={`tile-palette-btn ${tileTool === t.key ? 'active' : ''}`}
+                            onClick={() => setTileTool(t.key)}
+                            title={t.label}
+                          >
+                            <span className="tile-swatch" style={{ background: t.color }} />
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ))}
+
+                  {myCustomTiles.length > 0 && (
+                    <div className="tile-palette-group">
+                      <span className="tile-palette-group-label">Meus tiles</span>
+                      <div className="tile-palette">
+                        {myCustomTiles.map((t) => {
+                          const key = customTileKey(t.id);
+                          const url = t.image_path ? publicTileUrlFor(t.image_path) : null;
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              className={`tile-palette-btn ${tileTool === key ? 'active' : ''}`}
+                              onClick={() => setTileTool(key)}
+                              title={t.label}
+                            >
+                              <span
+                                className="tile-swatch"
+                                style={
+                                  url
+                                    ? { backgroundImage: `url(${url})`, backgroundSize: 'cover' }
+                                    : { background: t.color ?? '#888' }
+                                }
+                              />
+                              {t.label}
+                              {t.interactive && ' 🔀'}
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                className="tile-palette-btn-delete"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  handleDeleteCustomTile(t);
+                                }}
+                                title="Apagar este tile"
+                              >
+                                ×
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="tile-palette-group">
+                    <button type="button" className="link-btn" onClick={() => setShowCustomTileForm((s) => !s)}>
+                      {showCustomTileForm ? 'Cancelar' : '+ Tile customizado'}
+                    </button>
+                    {showCustomTileForm && (
+                      <form onSubmit={handleCreateCustomTile} className="reveal-form custom-tile-form">
+                        <div className="reveal-form-row">
+                          <input
+                            placeholder="Nome (ex: Grama Alta)"
+                            value={customTileLabel}
+                            onChange={(e) => setCustomTileLabel(e.target.value)}
+                          />
+                          <input
+                            placeholder="Categoria (ex: Chão)"
+                            value={customTileCategory}
+                            onChange={(e) => setCustomTileCategory(e.target.value)}
+                          />
+                        </div>
+                        <label>
+                          Imagem (opcional — sem imagem usa a cor abaixo)
+                          <input ref={customTileImageRef} type="file" accept="image/*" />
+                        </label>
+                        <label className="custom-tile-color-row">
+                          Cor de fallback
+                          <input
+                            type="color"
+                            value={customTileColor}
+                            onChange={(e) => setCustomTileColor(e.target.value)}
+                          />
+                        </label>
+                        <label className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={customTileInteractive}
+                            onChange={(e) => setCustomTileInteractive(e.target.checked)}
+                          />
+                          Interativo (tem um segundo estado, tipo porta aberta/fechada)
+                        </label>
+                        {customTileInteractive && (
+                          <>
+                            <label>
+                              Imagem do estado alternado (opcional)
+                              <input ref={customTileAltImageRef} type="file" accept="image/*" />
+                            </label>
+                            <label className="custom-tile-color-row">
+                              Cor do estado alternado
+                              <input
+                                type="color"
+                                value={customTileAltColor}
+                                onChange={(e) => setCustomTileAltColor(e.target.value)}
+                              />
+                            </label>
+                          </>
+                        )}
+                        <button type="submit" disabled={savingCustomTile || !customTileLabel.trim()}>
+                          {savingCustomTile ? 'Salvando…' : 'Criar tile'}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </div>
+              ) : tileMode === 'interact' ? (
+                <div className="tile-palette">
+                  <p className="muted" style={{ margin: 0 }}>
+                    Clique numa célula com tile interativo (🔀) pra alternar o estado dela — ex: abrir/fechar uma
+                    porta. Jogadores também podem clicar direto nessas células, mesmo fora deste modo.
+                  </p>
                 </div>
               ) : tileMode === 'measure' ? (
                 <div className="tile-palette">
@@ -699,6 +972,8 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
                   data={currentMap.tile_data}
                   editable={effectiveIsGm}
                   tool={paintTool}
+                  customTiles={allKnownCustomTiles}
+                  resolveUrl={publicTileUrlFor}
                   onChange={(next) => handleTileChange(currentMap.id, next)}
                 />
               ) : (
