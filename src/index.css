@@ -533,6 +533,20 @@ h2 {
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 14px 18px;
 }
+/* Seção de Subatributos (Blade Strands): nomes de campo mais longos
+   (ex: "Endurecimento (Resistência)") quebram em 2 linhas enquanto os
+   vizinhos na mesma linha da grade ficam em 1 — sem reservar altura
+   fixa pro rótulo, o input de quem quebrou nasce mais baixo que o dos
+   vizinhos, desalinhando a fileira inteira. Coluna um pouco mais larga
+   reduz a quebra; a altura mínima do rótulo garante alinhamento mesmo
+   quando ela ainda acontece. */
+.section-subatributos { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.section-subatributos .sheet-field > span {
+  display: flex;
+  align-items: flex-end;
+  min-height: 2.6em;
+  line-height: 1.3;
+}
 .sheet-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted); font-weight: 500; min-width: 0; }
 .sheet-field input, .sheet-field select, .sheet-field textarea {
   background: var(--bg);

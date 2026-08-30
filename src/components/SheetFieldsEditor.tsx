@@ -23,7 +23,7 @@ export function SheetFieldsEditor({ schema, data, editable, onFieldChange, onRol
         <div key={section.key} className="sheet-card">
           <strong className="sheet-card-title">{section.label}</strong>
           {section.description && <p className="muted sheet-section-desc">{section.description}</p>}
-          <div className="sheet-fields-grid">
+          <div className={`sheet-fields-grid section-${section.key}`}>
             {section.fields.map((field) =>
               field.formula ? (
                 <label key={field.key} className="sheet-field">
