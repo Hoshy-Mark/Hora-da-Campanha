@@ -1,0 +1,166 @@
+[
+  {
+    "name": "Kael, a Lâmina Silenciosa",
+    "isBoss": false,
+    "notes": "Personagem pré-gerado, pronto pra jogar. Foco em Física/Spirit — combate corpo a corpo direto, alto dano sustentado.",
+    "sheetData": {
+      "fields": {
+        "origem": "Distrito Baixo de Ferrovel",
+        "idade": "24",
+        "profissao": "Ex-segurança de comboio",
+        "historico": 2,
+        "FOR": 10, "RES": 8, "REF": 11, "TEC": 7, "PER": 7, "FOG": 6, "CON": 6, "IDE": 6, "ANC": 5,
+        "potencia": 4, "estrutura": 3, "coordenacao": 3,
+        "tecido": 3, "recuperacao": 3, "endurecimento": 2,
+        "velocidade": 5, "precisao": 4, "estabilidade": 2,
+        "execucao": 3, "economia": 2, "adaptacao": 2,
+        "atencao": 3, "antecipacao": 2, "discernimento": 2,
+        "captacao": 2, "reservatorio": 2, "ritmo": 2,
+        "foco": 2, "clareza": 2, "calculo": 2,
+        "continuidade": 2, "intensidade": 2, "autodefinicao": 2,
+        "spirit_capacidade": 18, "spirit_densidade": 18, "spirit_tolerancia": 8,
+        "mana_capacidade": 12, "mana_densidade": 13, "mana_tolerancia": 6,
+        "soul_capacidade": 12, "soul_densidade": 13, "soul_tolerancia": 11,
+        "prioridade_existencial": 15
+      },
+      "resources": {
+        "estamina": { "atual": 100, "max": 100 },
+        "spirit": { "atual": 18, "max": 18 },
+        "mana": { "atual": 12, "max": 12 },
+        "soul": { "texto": "Estável" }
+      }
+    },
+    "abilities": [
+      { "name": "Corte Ressonante", "category": "Física", "cost": "Estamina", "tier": "I", "description": "Um golpe de lâmina que ecoa a intenção do usuário, causando dano extra em alvos já feridos." },
+      { "name": "Passo Fantasma", "category": "Física", "cost": "Estamina", "tier": "I", "description": "Um deslocamento curto e silencioso, ignorando terreno difícil por uma rodada." },
+      { "name": "Guarda Inabalável", "category": "Física", "cost": "Estamina", "tier": "II", "description": "Postura defensiva que reduz o próximo dano recebido, mantendo a Estrutura firme mesmo sob pressão." }
+    ],
+    "items": [
+      { "name": "Lâmina de Strand", "description": "Arma padrão dos usuários de Blade Strands, sintoniza com o Spirit do portador.", "quantity": 1 },
+      { "name": "Frasco de Regeneração", "description": "Restaura uma porção de Estamina quando consumido.", "quantity": 3 }
+    ]
+  },
+  {
+    "name": "Yuna Voss, Tecelã de Mana",
+    "isBoss": false,
+    "notes": "Personagem pré-gerado, pronto pra jogar. Foco Mental/Mana — controle de campo e suporte à distância, frágil em combate direto.",
+    "sheetData": {
+      "fields": {
+        "origem": "Enclave Acadêmico de Verhalt",
+        "idade": "29",
+        "profissao": "Pesquisadora de Fios",
+        "historico": 1,
+        "FOR": 6, "RES": 6, "REF": 7, "TEC": 8, "PER": 9, "FOG": 9, "CON": 10, "IDE": 7, "ANC": 6,
+        "potencia": 2, "estrutura": 2, "coordenacao": 2,
+        "tecido": 2, "recuperacao": 2, "endurecimento": 2,
+        "velocidade": 3, "precisao": 2, "estabilidade": 2,
+        "execucao": 3, "economia": 3, "adaptacao": 2,
+        "atencao": 3, "antecipacao": 3, "discernimento": 3,
+        "captacao": 3, "reservatorio": 3, "ritmo": 3,
+        "foco": 4, "clareza": 3, "calculo": 3,
+        "continuidade": 3, "intensidade": 2, "autodefinicao": 2,
+        "spirit_capacidade": 12, "spirit_densidade": 15, "spirit_tolerancia": 6,
+        "mana_capacidade": 19, "mana_densidade": 18, "mana_tolerancia": 9,
+        "soul_capacidade": 17, "soul_densidade": 16, "soul_tolerancia": 13,
+        "prioridade_existencial": 17
+      },
+      "resources": {
+        "estamina": { "atual": 100, "max": 100 },
+        "spirit": { "atual": 12, "max": 12 },
+        "mana": { "atual": 19, "max": 19 },
+        "soul": { "texto": "Focada" }
+      }
+    },
+    "abilities": [
+      { "name": "Leitura de Fios", "category": "Mental", "cost": "Mana", "tier": "I", "description": "Permite enxergar por um instante as linhas de intenção ao redor — detecta armadilhas, ilusões e magia ativa nas proximidades." },
+      { "name": "Distorção Cognitiva", "category": "Mental", "cost": "Mana", "tier": "II", "description": "Confunde a percepção de um alvo, fazendo-o hesitar ou atacar na direção errada na próxima ação." },
+      { "name": "Eco da Ancoragem", "category": "Mental", "cost": "Mana", "tier": "II", "description": "Reforça a Identidade do usuário, concedendo resistência a efeitos de controle mental por uma cena." }
+    ],
+    "items": [
+      { "name": "Cristal de Mana Bruta", "description": "Pedra instável que libera Mana ao ser quebrada — restaura uma porção do reservatório quando consumida.", "quantity": 2 },
+      { "name": "Anel de Foco", "description": "Acessório simples que ajuda a manter a Clareza mental durante rituais ou uso prolongado de habilidades Mentais.", "quantity": 1 }
+    ]
+  },
+  {
+    "name": "Sable, o Peso da Alma",
+    "isBoss": false,
+    "notes": "Personagem pré-gerado, pronto pra jogar. Foco Existencial/tank — altíssima Ancoragem e Tolerância, defensor do grupo.",
+    "sheetData": {
+      "fields": {
+        "origem": "Ruínas de Cordhaven",
+        "idade": "35",
+        "profissao": "Guardião de refúgio",
+        "historico": 3,
+        "FOR": 8, "RES": 10, "REF": 6, "TEC": 6, "PER": 6, "FOG": 7, "CON": 8, "IDE": 10, "ANC": 9,
+        "potencia": 3, "estrutura": 3, "coordenacao": 2,
+        "tecido": 4, "recuperacao": 3, "endurecimento": 3,
+        "velocidade": 2, "precisao": 2, "estabilidade": 2,
+        "execucao": 2, "economia": 2, "adaptacao": 2,
+        "atencao": 2, "antecipacao": 2, "discernimento": 2,
+        "captacao": 3, "reservatorio": 2, "ritmo": 2,
+        "foco": 3, "clareza": 3, "calculo": 2,
+        "continuidade": 4, "intensidade": 3, "autodefinicao": 3,
+        "spirit_capacidade": 18, "spirit_densidade": 12, "spirit_tolerancia": 10,
+        "mana_capacidade": 15, "mana_densidade": 14, "mana_tolerancia": 7,
+        "soul_capacidade": 18, "soul_densidade": 16, "soul_tolerancia": 19,
+        "prioridade_existencial": 19
+      },
+      "resources": {
+        "estamina": { "atual": 100, "max": 100 },
+        "spirit": { "atual": 18, "max": 18 },
+        "mana": { "atual": 15, "max": 15 },
+        "soul": { "texto": "Inabalável" }
+      }
+    },
+    "abilities": [
+      { "name": "Guarda Inabalável", "category": "Física", "cost": "Estamina", "tier": "II", "description": "Postura defensiva que reduz o próximo dano recebido, mantendo a Estrutura firme mesmo sob pressão." },
+      { "name": "Ressonância da Alma", "category": "Existencial", "cost": "Soul", "tier": "II", "description": "Compartilha uma fração da própria Soul com um aliado próximo, transferindo parte da Estamina ou do Spirit restante entre os dois." },
+      { "name": "Sacrifício de Ancoragem", "category": "Existencial", "cost": "Soul", "tier": "III", "description": "Abre mão de parte da própria Ancoragem para desferir um golpe que ignora toda resistência do alvo — o preço vem depois, na forma de instabilidade de Identidade." }
+    ],
+    "items": [
+      { "name": "Manto do Véu", "description": "Tecido leve que dispersa parte do impacto de golpes físicos, sem atrapalhar os movimentos do usuário.", "quantity": 1 },
+      { "name": "Amuleto de Identidade Estável", "description": "Passado entre sobreviventes, ajuda a manter a Ancoragem firme quando a Soul começa a se fragmentar.", "quantity": 1 }
+    ]
+  },
+  {
+    "name": "Renji Okumura, Sobrevivente",
+    "isBoss": false,
+    "notes": "Personagem pré-gerado, pronto pra jogar. Foco Percepção/Perícia — versátil, bom em detectar perigo antes que aconteça.",
+    "sheetData": {
+      "fields": {
+        "origem": "Zona de Quarentena Norte",
+        "idade": "22",
+        "profissao": "Batedor / explorador de ruínas",
+        "historico": 4,
+        "FOR": 7, "RES": 7, "REF": 8, "TEC": 9, "PER": 10, "FOG": 6, "CON": 7, "IDE": 6, "ANC": 6,
+        "potencia": 3, "estrutura": 2, "coordenacao": 2,
+        "tecido": 3, "recuperacao": 2, "endurecimento": 2,
+        "velocidade": 3, "precisao": 3, "estabilidade": 2,
+        "execucao": 3, "economia": 3, "adaptacao": 3,
+        "atencao": 4, "antecipacao": 3, "discernimento": 3,
+        "captacao": 2, "reservatorio": 2, "ritmo": 2,
+        "foco": 3, "clareza": 2, "calculo": 2,
+        "continuidade": 2, "intensidade": 2, "autodefinicao": 2,
+        "spirit_capacidade": 14, "spirit_densidade": 17, "spirit_tolerancia": 7,
+        "mana_capacidade": 13, "mana_densidade": 16, "mana_tolerancia": 6,
+        "soul_capacidade": 13, "soul_densidade": 16, "soul_tolerancia": 12,
+        "prioridade_existencial": 20
+      },
+      "resources": {
+        "estamina": { "atual": 100, "max": 100 },
+        "spirit": { "atual": 14, "max": 14 },
+        "mana": { "atual": 13, "max": 13 },
+        "soul": { "texto": "Alerta" }
+      }
+    },
+    "abilities": [
+      { "name": "Investida de Aço", "category": "Física", "cost": "Estamina", "tier": "I", "description": "Avança até um alvo em linha reta e desfere um golpe com ímpeto extra." },
+      { "name": "Leitura de Fios", "category": "Mental", "cost": "Mana", "tier": "I", "description": "Permite enxergar por um instante as linhas de intenção ao redor — detecta armadilhas, ilusões e magia ativa nas proximidades." }
+    ],
+    "items": [
+      { "name": "Corda de Fio Sintético", "description": "Corda tecida a partir de fios sintéticos resistentes — sobe, prende e amarra quase qualquer coisa.", "quantity": 1 },
+      { "name": "Kit de Primeiros Socorros", "description": "Kit mundano de curativos — restaura Estamina fora de combate, sem depender de Spirit ou Mana.", "quantity": 1 },
+      { "name": "Registro do Sobrevivente", "description": "Diário ou gravação de alguém que já enfrentou os Distorcidos — não tem efeito mecânico direto, mas pode conter pistas importantes.", "quantity": 1 }
+    ]
+  }
+]

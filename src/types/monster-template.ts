@@ -39,9 +39,17 @@ const templateItemSchema = z.object({
   quantity: z.number().optional(),
 });
 
+// Espelha ResourceValue de types/game-system.ts: recurso "bar" guarda
+// `atual`/`max` (em português, igual ao resto do app — não "current"),
+// recurso "text" guarda `texto`. Aceita as três chaves como opcionais
+// porque o formato de fato usado depende do tipo do recurso no schema
+// do sistema escolhido no import, que este arquivo não enxerga.
 const sheetDataSchema = z.object({
   fields: z.record(z.string(), z.union([z.number(), z.string()])),
-  resources: z.record(z.string(), z.object({ current: z.number().optional(), max: z.number().optional() })),
+  resources: z.record(
+    z.string(),
+    z.object({ atual: z.number().optional(), max: z.number().optional(), texto: z.string().optional() })
+  ),
 });
 
 export const templateEntrySchema = z.object({

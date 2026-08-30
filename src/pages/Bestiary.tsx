@@ -7,6 +7,13 @@ import { parseTemplateJson, type TemplateAbility, type TemplateItem } from '../t
 import { SheetFieldsEditor } from '../components/SheetFieldsEditor';
 import { ResourceBar } from '../components/ResourceBar';
 import { downloadJson } from '../lib/download';
+import bladeStrandsBestiaryExample from '../examples/blade-strands.bestiary.json?raw';
+import bladeStrandsPregensExample from '../examples/blade-strands.pregens.json?raw';
+
+const IMPORT_EXAMPLES = [
+  { label: 'Exemplo: Inimigos de Blade Strands', json: bladeStrandsBestiaryExample },
+  { label: 'Exemplo: Personagens prontos de Blade Strands', json: bladeStrandsPregensExample },
+];
 
 interface SystemRow {
   id: string;
@@ -298,7 +305,16 @@ export function Bestiary() {
         </div>
 
         {showImport && (
-          <form onSubmit={handleImportSubmit} className="system-form">
+          <>
+            <div className="example-buttons">
+              {IMPORT_EXAMPLES.map((ex) => (
+                <button key={ex.label} type="button" className="link-btn" onClick={() => handleImportJsonChange(ex.json)}>
+                  {ex.label}
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={handleImportSubmit} className="system-form">
             <label>
               Sistema
               <select value={importSystemId} onChange={(e) => setImportSystemId(e.target.value)}>
@@ -344,7 +360,8 @@ export function Bestiary() {
             <button type="submit" disabled={!importPreview || !importSystemId || importing}>
               {importing ? 'Importando…' : 'Importar'}
             </button>
-          </form>
+            </form>
+          </>
         )}
       </section>
 
