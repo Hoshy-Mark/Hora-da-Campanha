@@ -464,7 +464,14 @@ export function CampaignRoom() {
               currentMapId={campaign.current_map_id}
               onSelectMap={handleSelectMap}
               isGm={isGm}
-              characters={characters.map((c) => ({ id: c.id, name: c.name, owner_id: c.owner_id, is_npc: c.is_npc }))}
+              characters={characters.map((c) => ({
+                id: c.id,
+                name: c.name,
+                owner_id: c.owner_id,
+                is_npc: c.is_npc,
+                sheet_data: c.sheet_data,
+              }))}
+              schema={schema}
               myUserId={user?.id}
             />
           ) : selected && schema ? (

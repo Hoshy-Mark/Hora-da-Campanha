@@ -32,10 +32,12 @@ interface Props {
   token: TokenRow;
   canMove: boolean;
   isGm: boolean;
+  isCurrentTurn: boolean;
   boardRef: React.RefObject<HTMLDivElement | null>;
   gridSnap: GridSnap | null;
   avatarUrl: string | null;
   onMove: (id: string, pos_x: number, pos_y: number) => void;
+  onOpenInfo: (id: string) => void;
 }
 
 function snapToCellCenter(pct: number, cellCount: number) {
@@ -44,16 +46,30 @@ function snapToCellCenter(pct: number, cellCount: number) {
   return (idx + 0.5) * cellPct;
 }
 
-export function MapToken({ token, canMove, isGm, boardRef, gridSnap, avatarUrl, onMove }: Props) {
+export function MapToken({ token, canMove, isGm, isCurrentTurn, boardRef, gridSnap, avatarUrl, onMove, onOpenInfo }: Props) {
   const dragging = useRef(false);
+  // Distingue um clique (abre o popover de info) de um arrastar (move o
+  // token) — sem isso, um token não-arrastável (canMove=false) nunca
+  // teria handler de pointer nenhum engatado e não daria pra clicar
+  // nele só pra ver a info.
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+  const moved = useRef(false);
 
   function handlePointerDown(e: ReactPointerEvent<HTMLDivElement>) {
-    if (!canMove) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragging.current = true;
+    pointerStart.current = { x: e.clientX, y: e.clientY };
+    moved.current = false;
+    if (canMove) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      dragging.current = true;
+    }
   }
 
   function handlePointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    if (pointerStart.current) {
+      const dx = e.clientX - pointerStart.current.x;
+      const dy = e.clientY - pointerStart.current.y;
+      if (Math.hypot(dx, dy) > 4) moved.current = true;
+    }
     if (!dragging.current || !boardRef.current) return;
     const rect = boardRef.current.getBoundingClientRect();
     let pctX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
@@ -73,18 +89,21 @@ export function MapToken({ token, canMove, isGm, boardRef, gridSnap, avatarUrl, 
   }
 
   function handlePointerUp(e: ReactPointerEvent<HTMLDivElement>) {
-    if (!dragging.current) return;
-    dragging.current = false;
-    const x = e.currentTarget.dataset.pendingX;
-    const y = e.currentTarget.dataset.pendingY;
-    if (x && y) onMove(token.id, Number(x), Number(y));
+    if (dragging.current) {
+      dragging.current = false;
+      const x = e.currentTarget.dataset.pendingX;
+      const y = e.currentTarget.dataset.pendingY;
+      if (x && y && moved.current) onMove(token.id, Number(x), Number(y));
+    }
+    if (!moved.current) onOpenInfo(token.id);
+    pointerStart.current = null;
   }
 
   const color = token.color || TYPE_COLOR[token.token_type];
 
   return (
     <div
-      className={`map-token ${canMove ? 'draggable' : ''} ${!token.visible_to_player ? 'hidden-token' : ''}`}
+      className={`map-token ${canMove ? 'draggable' : ''} ${!token.visible_to_player ? 'hidden-token' : ''} ${isCurrentTurn ? 'current-turn-token' : ''}`}
       style={{ left: `${token.pos_x}%`, top: `${token.pos_y}%`, borderColor: color }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

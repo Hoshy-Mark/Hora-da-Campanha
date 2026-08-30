@@ -15,6 +15,8 @@ import {
   type TileType,
 } from '../types/tilemap';
 import { QUICK_STATUS_EFFECTS, iconForStatus } from '../types/status-effects';
+import type { GameSystemSchema, SheetData } from '../types/game-system';
+import { CombatantResources } from './CombatantResources';
 
 interface MapRow {
   id: string;
@@ -30,6 +32,17 @@ interface CharacterOption {
   name: string;
   owner_id: string | null;
   is_npc: boolean;
+  sheet_data: SheetData;
+}
+
+interface InitiativeEntryLite {
+  id: string;
+  character_id: string | null;
+  label: string;
+  initiative: number;
+  is_current: boolean;
+  is_defeated: boolean;
+  visible_to_player: boolean;
 }
 
 interface Props {
@@ -38,6 +51,7 @@ interface Props {
   onSelectMap: (mapId: string | null) => void;
   isGm: boolean;
   characters: CharacterOption[];
+  schema: GameSystemSchema | undefined;
   myUserId: string | undefined;
 }
 
@@ -48,7 +62,7 @@ const TYPE_LABEL: Record<TokenRow['token_type'], string> = {
   other: 'Outro',
 };
 
-export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characters, myUserId }: Props) {
+export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characters, schema, myUserId }: Props) {
   const { showToast } = useToast();
   const [maps, setMaps] = useState<MapRow[]>([]);
   const [tokens, setTokens] = useState<TokenRow[]>([]);
@@ -72,6 +86,16 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   const [avatarUploadingId, setAvatarUploadingId] = useState<string | null>(null);
   const [statusEditorTokenId, setStatusEditorTokenId] = useState<string | null>(null);
   const [customStatus, setCustomStatus] = useState('');
+  const [previewAsPlayer, setPreviewAsPlayer] = useState(false);
+  const [tokenPanelOpen, setTokenPanelOpen] = useState(false);
+  const [openTokenPopoverId, setOpenTokenPopoverId] = useState<string | null>(null);
+  const [initiativeEntries, setInitiativeEntries] = useState<InitiativeEntryLite[]>([]);
+  // Toda decisão de RENDERIZAÇÃO do mapa (o que fica visível, quem pode
+  // arrastar token, quais controles de edição aparecem) usa isto em vez
+  // do `isGm` cru — assim o Mestre pode pré-visualizar exatamente o que
+  // o jogador vê sem trocar de conta. `isGm` puro só decide se o botão
+  // de alternar o modo preview aparece.
+  const effectiveIsGm = isGm && !previewAsPlayer;
 
   // Enquanto uma pintura de tile ainda não foi persistida (debounce de
   // handleTileChange), o eco do Realtime pra esse mesmo mapa não pode
@@ -124,6 +148,75 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
       supabase.removeChannel(channel);
     };
   }, [campaignId]);
+
+  // Uma cópia leve, só-leitura na maior parte, da mesma tabela que o
+  // CombatTracker gerencia por completo — dá pra ver a ordem de turnos
+  // e destacar quem está jogando agora sem sair da aba Mapa. Os dois
+  // componentes são independentes de propósito (mesmo padrão do resto
+  // do app: cada aba busca sua própria fatia de dado).
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadInitiative() {
+      const { data } = await supabase
+        .from('initiative_entries')
+        .select('id, character_id, label, initiative, is_current, is_defeated, visible_to_player')
+        .eq('campaign_id', campaignId)
+        .order('initiative', { ascending: false })
+        .order('created_at', { ascending: true });
+      if (!cancelled) setInitiativeEntries((data ?? []) as unknown as InitiativeEntryLite[]);
+    }
+
+    loadInitiative();
+
+    const channel = supabase
+      .channel(`map-initiative-${campaignId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'initiative_entries', filter: `campaign_id=eq.${campaignId}` },
+        () => {
+          if (!cancelled) loadInitiative();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [campaignId]);
+
+  async function mapStartCombat() {
+    const alive = initiativeEntries.filter((e) => !e.is_defeated);
+    if (alive.length === 0) return;
+    setInitiativeEntries((prev) => prev.map((e) => (e.id === alive[0].id ? { ...e, is_current: true } : e)));
+    const { error } = await supabase.from('initiative_entries').update({ is_current: true }).eq('id', alive[0].id);
+    if (error) showToast(error.message, 'error');
+  }
+
+  async function mapNextTurn() {
+    const currentIdx = initiativeEntries.findIndex((e) => e.is_current);
+    if (currentIdx === -1) return mapStartCombat();
+
+    let nextIdx = (currentIdx + 1) % initiativeEntries.length;
+    let hops = 0;
+    while (initiativeEntries[nextIdx].is_defeated && hops < initiativeEntries.length) {
+      nextIdx = (nextIdx + 1) % initiativeEntries.length;
+      hops++;
+    }
+
+    const currentId = initiativeEntries[currentIdx].id;
+    const nextId = initiativeEntries[nextIdx].id;
+    // Checa nextId primeiro: com um só combatente, currentId === nextId,
+    // e o resultado final (depois dos dois updates sequenciais no banco,
+    // false e depois true) precisa continuar current — não sumir.
+    setInitiativeEntries((prev) =>
+      prev.map((e) => (e.id === nextId ? { ...e, is_current: true } : e.id === currentId ? { ...e, is_current: false } : e))
+    );
+    const { error: e1 } = await supabase.from('initiative_entries').update({ is_current: false }).eq('id', currentId);
+    const { error: e2 } = await supabase.from('initiative_entries').update({ is_current: true }).eq('id', nextId);
+    if (e1 || e2) showToast((e1 ?? e2)!.message, 'error');
+  }
 
   useEffect(() => {
     if (!currentMapId) {
@@ -388,11 +481,17 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   }
 
   function canMoveToken(t: TokenRow) {
-    if (isGm) return true;
+    if (effectiveIsGm) return true;
     if (!t.character_id) return false;
     const char = characters.find((c) => c.id === t.character_id);
     return !!char && char.owner_id === myUserId;
   }
+
+  const visibleInitiative = initiativeEntries.filter((e) => e.visible_to_player || effectiveIsGm);
+  const initiativeInCombat = initiativeEntries.some((e) => e.is_current);
+  const currentTurnCharacterId = initiativeEntries.find((e) => e.is_current)?.character_id ?? null;
+  const popoverToken = tokens.find((t) => t.id === openTokenPopoverId) ?? null;
+  const popoverCharacter = popoverToken ? characters.find((c) => c.id === popoverToken.character_id) ?? null : null;
 
   return (
     <div className="map-board-wrap">
@@ -410,6 +509,14 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
             </select>
           )}
           {isGm && (
+            <button
+              className={`link-btn ${previewAsPlayer ? 'preview-active' : ''}`}
+              onClick={() => setPreviewAsPlayer((s) => !s)}
+            >
+              {previewAsPlayer ? '◀ Voltar pra edição' : '👁 Ver como jogador'}
+            </button>
+          )}
+          {effectiveIsGm && (
             <button className="link-btn" onClick={() => setShowUpload((s) => !s)}>
               {showUpload ? 'Cancelar' : '+ Novo mapa'}
             </button>
@@ -417,7 +524,13 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
         </div>
       </div>
 
-      {isGm && showUpload && (
+      {previewAsPlayer && (
+        <p className="muted preview-banner">
+          👁 Vendo o mapa exatamente como um jogador vê — névoa oculta e tokens ocultos não aparecem aqui.
+        </p>
+      )}
+
+      {effectiveIsGm && showUpload && (
         <div className="reveal-form map-upload-form">
           <div className="map-kind-tabs">
             <button type="button" className={newMapKind === 'image' ? 'active' : ''} onClick={() => setNewMapKind('image')}>
@@ -478,7 +591,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
         </div>
       ) : (
         <>
-          {isGm && currentMap.kind === 'tilemap' && (
+          {effectiveIsGm && currentMap.kind === 'tilemap' && (
             <>
               <div className="map-kind-tabs">
                 <button type="button" className={tileMode === 'terrain' ? 'active' : ''} onClick={() => setTileMode('terrain')}>
@@ -552,168 +665,261 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
             </>
           )}
 
-          <div className="map-image-board" ref={boardRef}>
-            {currentMap.kind === 'tilemap' && currentMap.tile_data ? (
-              <TileMapBoard
-                data={currentMap.tile_data}
-                editable={isGm}
-                tool={paintTool}
-                onChange={(next) => handleTileChange(currentMap.id, next)}
-              />
-            ) : (
-              <img src={publicUrlFor(currentMap.image_path!)} alt={currentMap.name} draggable={false} />
+          <div className="map-stage">
+            {visibleInitiative.length > 0 && (
+              <div className="map-initiative-strip">
+                <span className="map-initiative-strip-label">Iniciativa</span>
+                {visibleInitiative.map((e) => (
+                  <span
+                    key={e.id}
+                    className={`map-initiative-pill ${e.is_current ? 'current' : ''} ${e.is_defeated ? 'defeated' : ''}`}
+                  >
+                    {e.label}
+                  </span>
+                ))}
+                {effectiveIsGm && (
+                  <span className="map-initiative-strip-actions">
+                    {!initiativeInCombat ? (
+                      <button className="link-btn" onClick={mapStartCombat}>
+                        Iniciar
+                      </button>
+                    ) : (
+                      <button className="link-btn" onClick={mapNextTurn}>
+                        Próximo →
+                      </button>
+                    )}
+                  </span>
+                )}
+              </div>
             )}
-            {tokens
-              .filter((t) => t.visible_to_player || isGm)
-              .map((t) => (
-                <MapToken
-                  key={t.id}
-                  token={t}
-                  canMove={canMoveToken(t)}
-                  isGm={isGm}
-                  boardRef={boardRef}
-                  gridSnap={
-                    currentMap.kind === 'tilemap' && currentMap.tile_data
-                      ? { cols: currentMap.tile_data.cols, rows: currentMap.tile_data.rows }
-                      : null
-                  }
-                  avatarUrl={t.image_path ? publicUrlFor(t.image_path) : null}
-                  onMove={handleMoveToken}
-                />
-              ))}
-          </div>
 
-          {isGm && (
-            <div className="sheet-card map-token-manager">
-              <strong className="sheet-card-title">Tokens neste mapa</strong>
-              <form onSubmit={handleAddToken} className="reveal-form-row token-add-row">
-                <select value={newTokenCharacterId} onChange={(e) => setNewTokenCharacterId(e.target.value)}>
-                  <option value="">Token avulso (digite o nome)</option>
-                  {characters.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                {!newTokenCharacterId && (
-                  <input
-                    placeholder="Nome do token"
-                    value={newTokenLabel}
-                    onChange={(e) => setNewTokenLabel(e.target.value)}
+            <div className="map-image-board" ref={boardRef}>
+              {currentMap.kind === 'tilemap' && currentMap.tile_data ? (
+                <TileMapBoard
+                  data={currentMap.tile_data}
+                  editable={effectiveIsGm}
+                  tool={paintTool}
+                  onChange={(next) => handleTileChange(currentMap.id, next)}
+                />
+              ) : (
+                <img src={publicUrlFor(currentMap.image_path!)} alt={currentMap.name} draggable={false} />
+              )}
+              {tokens
+                .filter((t) => t.visible_to_player || effectiveIsGm)
+                .map((t) => (
+                  <MapToken
+                    key={t.id}
+                    token={t}
+                    canMove={canMoveToken(t)}
+                    isGm={effectiveIsGm}
+                    isCurrentTurn={!!t.character_id && t.character_id === currentTurnCharacterId}
+                    boardRef={boardRef}
+                    gridSnap={
+                      currentMap.kind === 'tilemap' && currentMap.tile_data
+                        ? { cols: currentMap.tile_data.cols, rows: currentMap.tile_data.rows }
+                        : null
+                    }
+                    avatarUrl={t.image_path ? publicUrlFor(t.image_path) : null}
+                    onMove={handleMoveToken}
+                    onOpenInfo={(id) => setOpenTokenPopoverId((cur) => (cur === id ? null : id))}
+                  />
+                ))}
+            </div>
+
+            {popoverToken && (
+              <div className="map-token-popover">
+                <div className="section-head-row">
+                  <strong>{popoverToken.label}</strong>
+                  <button className="link-btn" onClick={() => setOpenTokenPopoverId(null)}>
+                    Fechar
+                  </button>
+                </div>
+
+                {popoverCharacter && schema && (
+                  <CombatantResources
+                    character={popoverCharacter}
+                    schema={schema}
+                    editable={effectiveIsGm || popoverCharacter.owner_id === myUserId}
                   />
                 )}
-                <select value={newTokenType} onChange={(e) => setNewTokenType(e.target.value as TokenRow['token_type'])}>
-                  <option value="player">Jogador</option>
-                  <option value="npc">NPC</option>
-                  <option value="enemy">Inimigo</option>
-                  <option value="other">Outro</option>
-                </select>
-                <input
-                  ref={newTokenAvatarRef}
-                  type="file"
-                  accept="image/*"
-                  title="Avatar (opcional)"
-                  className="token-avatar-input"
-                />
-                <button type="submit" disabled={!newTokenCharacterId && !newTokenLabel.trim()}>
-                  + Adicionar
-                </button>
-              </form>
 
-              {tokens.length > 0 && (
-                <ul className="reveal-list token-list">
-                  {tokens.map((t) => (
-                    <li key={t.id} className={t.visible_to_player ? '' : 'hidden-item'}>
-                      <div className="reveal-item-main">
-                        <div className="reveal-item-head">
-                          <strong>{t.label}</strong>
-                          <span className="tag">{TYPE_LABEL[t.token_type]}</span>
-                          {!t.visible_to_player && <span className="tag hidden-tag">Oculto do jogador</span>}
-                          {t.status_effects.map((s) => (
-                            <span key={s} className="tag status-tag">
-                              {iconForStatus(s)} {s}
-                              <button
-                                type="button"
-                                className="status-tag-remove"
-                                onClick={() => removeTokenStatus(t, s)}
-                                title="Remover condição"
-                              >
-                                ×
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                        {statusEditorTokenId === t.id && (
-                          <div className="status-editor">
-                            {QUICK_STATUS_EFFECTS.map((s) => (
-                              <button
-                                key={s.key}
-                                type="button"
-                                className="tile-palette-btn"
-                                disabled={t.status_effects.includes(s.key)}
-                                onClick={() => addTokenStatus(t, s.key)}
-                              >
-                                {s.icon} {s.label}
-                              </button>
-                            ))}
-                            <div className="reveal-form-row">
-                              <input
-                                placeholder="Condição customizada"
-                                value={customStatus}
-                                onChange={(e) => setCustomStatus(e.target.value)}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  addTokenStatus(t, customStatus.trim());
-                                  setCustomStatus('');
-                                }}
-                                disabled={!customStatus.trim()}
-                              >
-                                Adicionar
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="reveal-item-actions">
-                        <button
-                          className="link-btn"
-                          onClick={() => setStatusEditorTokenId(statusEditorTokenId === t.id ? null : t.id)}
-                        >
-                          {statusEditorTokenId === t.id ? 'Fechar status' : '+ Status'}
-                        </button>
-                        <label className="link-btn token-avatar-swap">
-                          {avatarUploadingId === t.id ? 'Enviando…' : t.image_path ? 'Trocar imagem' : 'Imagem'}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            disabled={avatarUploadingId === t.id}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleSetTokenAvatar(t, file);
-                              e.target.value = '';
-                            }}
-                          />
-                        </label>
-                        {t.image_path && (
-                          <button className="link-btn" onClick={() => handleRemoveTokenAvatar(t)}>
-                            Remover imagem
+                {(popoverToken.status_effects.length > 0 || effectiveIsGm) && (
+                  <div className="map-token-popover-statuses">
+                    {popoverToken.status_effects.map((s) => (
+                      <span key={s} className="tag status-tag">
+                        {iconForStatus(s)} {s}
+                        {effectiveIsGm && (
+                          <button
+                            type="button"
+                            className="status-tag-remove"
+                            onClick={() => removeTokenStatus(popoverToken, s)}
+                          >
+                            ×
                           </button>
                         )}
-                        <button className="link-btn" onClick={() => toggleTokenVisible(t)}>
-                          {t.visible_to_player ? 'Ocultar' : 'Revelar'}
-                        </button>
-                        <button className="link-btn danger" onClick={() => removeToken(t.id)}>
-                          Remover
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {effectiveIsGm && (
+                  <div className="status-editor">
+                    {QUICK_STATUS_EFFECTS.map((s) => (
+                      <button
+                        key={s.key}
+                        type="button"
+                        className="tile-palette-btn"
+                        disabled={popoverToken.status_effects.includes(s.key)}
+                        onClick={() => addTokenStatus(popoverToken, s.key)}
+                      >
+                        {s.icon} {s.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {effectiveIsGm && (
+              <>
+                <button className="link-btn map-token-panel-toggle" onClick={() => setTokenPanelOpen((o) => !o)}>
+                  {tokenPanelOpen ? 'Fechar tokens' : '🎭 Tokens'}
+                </button>
+
+                {tokenPanelOpen && (
+                  <div className="sheet-card map-token-manager map-token-panel">
+                    <strong className="sheet-card-title">Tokens neste mapa</strong>
+                    <form onSubmit={handleAddToken} className="reveal-form-row token-add-row">
+                      <select value={newTokenCharacterId} onChange={(e) => setNewTokenCharacterId(e.target.value)}>
+                        <option value="">Token avulso (digite o nome)</option>
+                        {characters.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                      {!newTokenCharacterId && (
+                        <input
+                          placeholder="Nome do token"
+                          value={newTokenLabel}
+                          onChange={(e) => setNewTokenLabel(e.target.value)}
+                        />
+                      )}
+                      <select value={newTokenType} onChange={(e) => setNewTokenType(e.target.value as TokenRow['token_type'])}>
+                        <option value="player">Jogador</option>
+                        <option value="npc">NPC</option>
+                        <option value="enemy">Inimigo</option>
+                        <option value="other">Outro</option>
+                      </select>
+                      <input
+                        ref={newTokenAvatarRef}
+                        type="file"
+                        accept="image/*"
+                        title="Avatar (opcional)"
+                        className="token-avatar-input"
+                      />
+                      <button type="submit" disabled={!newTokenCharacterId && !newTokenLabel.trim()}>
+                        + Adicionar
+                      </button>
+                    </form>
+
+                    {tokens.length > 0 && (
+                      <ul className="reveal-list token-list">
+                        {tokens.map((t) => (
+                          <li key={t.id} className={t.visible_to_player ? '' : 'hidden-item'}>
+                            <div className="reveal-item-main">
+                              <div className="reveal-item-head">
+                                <strong>{t.label}</strong>
+                                <span className="tag">{TYPE_LABEL[t.token_type]}</span>
+                                {!t.visible_to_player && <span className="tag hidden-tag">Oculto do jogador</span>}
+                                {t.status_effects.map((s) => (
+                                  <span key={s} className="tag status-tag">
+                                    {iconForStatus(s)} {s}
+                                    <button
+                                      type="button"
+                                      className="status-tag-remove"
+                                      onClick={() => removeTokenStatus(t, s)}
+                                      title="Remover condição"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                              {statusEditorTokenId === t.id && (
+                                <div className="status-editor">
+                                  {QUICK_STATUS_EFFECTS.map((s) => (
+                                    <button
+                                      key={s.key}
+                                      type="button"
+                                      className="tile-palette-btn"
+                                      disabled={t.status_effects.includes(s.key)}
+                                      onClick={() => addTokenStatus(t, s.key)}
+                                    >
+                                      {s.icon} {s.label}
+                                    </button>
+                                  ))}
+                                  <div className="reveal-form-row">
+                                    <input
+                                      placeholder="Condição customizada"
+                                      value={customStatus}
+                                      onChange={(e) => setCustomStatus(e.target.value)}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        addTokenStatus(t, customStatus.trim());
+                                        setCustomStatus('');
+                                      }}
+                                      disabled={!customStatus.trim()}
+                                    >
+                                      Adicionar
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <div className="reveal-item-actions">
+                              <button
+                                className="link-btn"
+                                onClick={() => setStatusEditorTokenId(statusEditorTokenId === t.id ? null : t.id)}
+                              >
+                                {statusEditorTokenId === t.id ? 'Fechar status' : '+ Status'}
+                              </button>
+                              <label className="link-btn token-avatar-swap">
+                                {avatarUploadingId === t.id ? 'Enviando…' : t.image_path ? 'Trocar imagem' : 'Imagem'}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  disabled={avatarUploadingId === t.id}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleSetTokenAvatar(t, file);
+                                    e.target.value = '';
+                                  }}
+                                />
+                              </label>
+                              {t.image_path && (
+                                <button className="link-btn" onClick={() => handleRemoveTokenAvatar(t)}>
+                                  Remover imagem
+                                </button>
+                              )}
+                              <button className="link-btn" onClick={() => toggleTokenVisible(t)}>
+                                {t.visible_to_player ? 'Ocultar' : 'Revelar'}
+                              </button>
+                              <button className="link-btn danger" onClick={() => removeToken(t.id)}>
+                                Remover
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </>
       )}
     </div>
