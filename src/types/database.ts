@@ -58,6 +58,7 @@ export interface Database {
           name: string;
           sheet_data: SheetData;
           is_npc: boolean;
+          avatar_path: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -68,8 +69,9 @@ export interface Database {
           name: string;
           sheet_data?: SheetData;
           is_npc?: boolean;
+          avatar_path?: string | null;
         };
-        Update: Partial<{ name: string; sheet_data: SheetData }>;
+        Update: Partial<{ name: string; sheet_data: SheetData; avatar_path: string | null }>;
         Relationships: Relationships;
       };
       character_secrets: {
@@ -187,6 +189,12 @@ export interface Database {
           status_effects: string[];
           is_defeated: boolean;
         }>;
+        Relationships: Relationships;
+      };
+      activity_log: {
+        Row: { id: string; campaign_id: string; message: string; created_at: string };
+        Insert: { id?: string; campaign_id: string; message: string };
+        Update: Record<string, never>;
         Relationships: Relationships;
       };
       dice_rolls: {

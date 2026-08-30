@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
+import { logActivity } from '../lib/activity';
 
 interface Handout {
   id: string;
@@ -108,8 +109,10 @@ export function Handouts({ campaignId, isGm }: Props) {
   }
 
   async function toggleVisible(h: Handout) {
-    const { error } = await supabase.from('handouts').update({ visible_to_player: !h.visible_to_player }).eq('id', h.id);
+    const revealing = !h.visible_to_player;
+    const { error } = await supabase.from('handouts').update({ visible_to_player: revealing }).eq('id', h.id);
     if (error) showToast(error.message, 'error');
+    else if (revealing) logActivity(campaignId, `Handout "${h.title}" foi revelado.`);
     await refresh();
   }
 

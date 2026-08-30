@@ -1,3 +1,4 @@
+import { supabase } from '../lib/supabase';
 import type { GameSystemSchema, SheetData } from '../types/game-system';
 
 interface CharacterRow {
@@ -6,6 +7,7 @@ interface CharacterRow {
   name: string;
   sheet_data: SheetData;
   is_npc: boolean;
+  avatar_path: string | null;
 }
 
 interface Props {
@@ -19,11 +21,15 @@ interface Props {
 
 export function CharacterCard({ character, schema, ownerName, selected, onSelect, onDelete }: Props) {
   const barResources = schema.resources.filter((r) => r.type === 'bar');
+  const avatarUrl = character.avatar_path
+    ? supabase.storage.from('maps').getPublicUrl(character.avatar_path).data.publicUrl
+    : null;
 
   return (
     <div className={`character-card ${selected ? 'selected' : ''}`}>
       <button type="button" className="character-card-main" onClick={onSelect}>
         <div className="character-card-title">
+          {avatarUrl && <img className="character-card-avatar" src={avatarUrl} alt="" />}
           <strong>{character.name}</strong>
           {character.is_npc ? (
             <span className="npc-badge">NPC</span>

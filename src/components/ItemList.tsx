@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
+import { logActivity } from '../lib/activity';
 
 interface Item {
   id: string;
@@ -128,11 +129,13 @@ export function ItemList({ characterId, campaignId, gameSystemId, isGm }: Props)
   }
 
   async function toggleVisible(item: Item) {
+    const revealing = !item.visible_to_player;
     const { error } = await supabase
       .from('inventory_items')
-      .update({ visible_to_player: !item.visible_to_player })
+      .update({ visible_to_player: revealing })
       .eq('id', item.id);
     if (error) showToast(error.message, 'error');
+    else if (revealing) logActivity(campaignId, `Item "${item.name}" foi revelado.`);
     await refresh();
   }
 

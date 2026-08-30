@@ -15,6 +15,7 @@ import {
   type TileMapData,
 } from '../types/tilemap';
 import { QUICK_STATUS_EFFECTS, iconForStatus } from '../types/status-effects';
+import { logActivity } from '../lib/activity';
 import type { GameSystemSchema, SheetData } from '../types/game-system';
 import { CombatantResources } from './CombatantResources';
 
@@ -203,6 +204,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     setInitiativeEntries((prev) => prev.map((e) => (e.id === alive[0].id ? { ...e, is_current: true } : e)));
     const { error } = await supabase.from('initiative_entries').update({ is_current: true }).eq('id', alive[0].id);
     if (error) showToast(error.message, 'error');
+    else logActivity(campaignId, `O combate começou! Turno de ${alive[0].label}.`);
   }
 
   async function mapNextTurn() {
@@ -227,6 +229,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     const { error: e1 } = await supabase.from('initiative_entries').update({ is_current: false }).eq('id', currentId);
     const { error: e2 } = await supabase.from('initiative_entries').update({ is_current: true }).eq('id', nextId);
     if (e1 || e2) showToast((e1 ?? e2)!.message, 'error');
+    else logActivity(campaignId, `Agora é a vez de ${initiativeEntries[nextIdx].label}.`);
   }
 
   useEffect(() => {
@@ -425,6 +428,21 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
       onSelectMap(data.id);
       showToast('Mapa de tiles criado!', 'success');
     }
+  }
+
+  async function handleDeleteMap(map: MapRow) {
+    if (!confirm(`Apagar o mapa "${map.name}"? Os tokens dele somem junto. Não tem como desfazer.`)) return;
+    setMaps((prev) => prev.filter((m) => m.id !== map.id));
+    if (currentMapId === map.id) onSelectMap(null);
+    const { error } = await supabase.from('maps').delete().eq('id', map.id);
+    if (error) {
+      showToast(error.message, 'error');
+      return;
+    }
+    if (map.kind === 'image' && map.image_path) {
+      await supabase.storage.from('maps').remove([map.image_path]);
+    }
+    showToast('Mapa apagado.', 'success');
   }
 
   const persistTiles = useRef(
@@ -665,6 +683,11 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
               onClick={() => setPreviewAsPlayer((s) => !s)}
             >
               {previewAsPlayer ? '◀ Voltar pra edição' : '👁 Ver como jogador'}
+            </button>
+          )}
+          {effectiveIsGm && currentMap && (
+            <button className="link-btn danger" onClick={() => handleDeleteMap(currentMap)}>
+              Apagar mapa
             </button>
           )}
           {effectiveIsGm && (

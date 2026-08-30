@@ -34,6 +34,7 @@ export function Dashboard() {
       supabase
         .from('campaign_members')
         .select('campaign_id, role, campaigns(id, name, invite_code)')
+        .eq('user_id', user!.id)
         .order('joined_at', { ascending: false }),
       supabase.from('game_systems').select('id, name').eq('owner_id', user!.id).order('name'),
     ]);
@@ -86,6 +87,31 @@ export function Dashboard() {
     if (data) navigate(`/campaign/${data.id}`);
   }
 
+  async function handleDeleteCampaign(campaignId: string, name: string) {
+    if (!confirm(`Apagar a campanha "${name}"? Isso apaga tudo dela — personagens, mapas, itens — e não tem como desfazer.`))
+      return;
+    setCampaigns((prev) => prev.filter((c) => c.campaign_id !== campaignId));
+    const { error } = await supabase.from('campaigns').delete().eq('id', campaignId);
+    if (error) {
+      showToast(error.message, 'error');
+      await loadAll();
+    } else {
+      showToast('Campanha apagada.', 'success');
+    }
+  }
+
+  async function handleLeaveCampaign(campaignId: string, name: string) {
+    if (!confirm(`Sair da campanha "${name}"? Você vai precisar de um novo convite pra voltar.`)) return;
+    setCampaigns((prev) => prev.filter((c) => c.campaign_id !== campaignId));
+    const { error } = await supabase.from('campaign_members').delete().eq('campaign_id', campaignId).eq('user_id', user!.id);
+    if (error) {
+      showToast(error.message, 'error');
+      await loadAll();
+    } else {
+      showToast('Você saiu da campanha.', 'success');
+    }
+  }
+
   return (
     <div className="dashboard">
       <h1>Suas Campanhas</h1>
@@ -132,7 +158,7 @@ export function Dashboard() {
       ) : (
         <ul className="campaign-list">
           {campaigns.map((c) => (
-            <li key={c.campaign_id}>
+            <li key={c.campaign_id} className="campaign-list-item">
               <button className="campaign-card" onClick={() => navigate(`/campaign/${c.campaign_id}`)}>
                 <strong>{c.campaigns?.name ?? '(campanha removida)'}</strong>
                 <span className={`role-badge role-${c.role}`}>{c.role === 'gm' ? 'Mestre' : 'Jogador'}</span>
@@ -140,6 +166,21 @@ export function Dashboard() {
                   <span className="invite-hint">Convite: {c.campaigns.invite_code}</span>
                 )}
               </button>
+              {c.role === 'gm' ? (
+                <button
+                  className="link-btn danger campaign-list-action"
+                  onClick={() => handleDeleteCampaign(c.campaign_id, c.campaigns?.name ?? 'esta campanha')}
+                >
+                  Apagar
+                </button>
+              ) : (
+                <button
+                  className="link-btn danger campaign-list-action"
+                  onClick={() => handleLeaveCampaign(c.campaign_id, c.campaigns?.name ?? 'esta campanha')}
+                >
+                  Sair
+                </button>
+              )}
             </li>
           ))}
         </ul>

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { formatExpression, rollDice } from '../lib/dice';
+import { logActivity } from '../lib/activity';
 import type { GameSystemSchema, SheetData } from '../types/game-system';
 import { QUICK_STATUS_EFFECTS, iconForStatus } from '../types/status-effects';
 import { CombatantResources } from './CombatantResources';
@@ -160,6 +161,7 @@ export function CombatTracker({ campaignId, isGm, characters, schema, myUserId }
     if (alive.length === 0) return;
     const { error } = await supabase.from('initiative_entries').update({ is_current: true }).eq('id', alive[0].id);
     if (error) showToast(error.message, 'error');
+    else logActivity(campaignId, `O combate começou! Turno de ${alive[0].label}.`);
     await refresh();
   }
 
@@ -186,6 +188,7 @@ export function CombatTracker({ campaignId, isGm, characters, schema, myUserId }
       .update({ is_current: true })
       .eq('id', entries[nextIdx].id);
     if (e1 || e2) showToast((e1 ?? e2)!.message, 'error');
+    else logActivity(campaignId, `Agora é a vez de ${entries[nextIdx].label}.`);
     await refresh();
   }
 

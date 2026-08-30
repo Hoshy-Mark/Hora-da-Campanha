@@ -297,6 +297,7 @@ create table public.characters (
   name text not null,
   sheet_data jsonb not null default '{"fields": {}, "resources": {}}'::jsonb,
   is_npc boolean not null default false,
+  avatar_path text, -- retrato opcional, bucket "maps" em "{campaign_id}/characters/{arquivo}"
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -659,6 +660,30 @@ create policy "tile_definitions_delete_owner"
   using (owner_id = auth.uid());
 
 -- =====================================================================
+-- ACTIVITY_LOG — feed cronológico de eventos da campanha (revelações,
+-- trocas de turno, personagem que entrou...), separado do log de dados
+-- (dice_rolls). Mensagem já pronta de quem dispara o evento.
+-- =====================================================================
+create table public.activity_log (
+  id uuid primary key default gen_random_uuid(),
+  campaign_id uuid not null references public.campaigns(id) on delete cascade,
+  message text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.activity_log enable row level security;
+
+create policy "activity_log_select_members"
+  on public.activity_log for select
+  to authenticated
+  using (public.is_campaign_member(campaign_id));
+
+create policy "activity_log_insert_members"
+  on public.activity_log for insert
+  to authenticated
+  with check (public.is_campaign_member(campaign_id));
+
+-- =====================================================================
 -- MAPS — mapas de uma campanha, em dois formatos possíveis (`kind`):
 -- 'image' é upload de PNG/JPEG pro bucket de Storage "maps" (criado mais
 -- abaixo), com `image_path` no formato "{campaign_id}/{arquivo}" — as
@@ -851,3 +876,4 @@ alter publication supabase_realtime add table public.monster_templates;
 alter publication supabase_realtime add table public.handouts;
 alter publication supabase_realtime add table public.catalog_entries;
 alter publication supabase_realtime add table public.tile_definitions;
+alter publication supabase_realtime add table public.activity_log;

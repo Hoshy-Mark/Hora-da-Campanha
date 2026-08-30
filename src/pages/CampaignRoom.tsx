@@ -11,6 +11,8 @@ import { CombatTracker } from '../components/CombatTracker';
 import { GmNotes } from '../components/GmNotes';
 import { Handouts } from '../components/Handouts';
 import { DiceRoller } from '../components/DiceRoller';
+import { ActivityFeed } from '../components/ActivityFeed';
+import { logActivity } from '../lib/activity';
 import { useOnlineUserIds } from '../lib/usePresence';
 import { useToast } from '../context/ToastContext';
 
@@ -37,6 +39,7 @@ interface CharacterRow {
   name: string;
   sheet_data: SheetData;
   is_npc: boolean;
+  avatar_path: string | null;
 }
 
 interface MonsterTemplateRow {
@@ -65,6 +68,7 @@ export function CampaignRoom() {
 
   const [templates, setTemplates] = useState<MonsterTemplateRow[]>([]);
   const [templateId, setTemplateId] = useState('');
+  const [templateQty, setTemplateQty] = useState(1);
   const [instantiating, setInstantiating] = useState(false);
 
   const myRole = members.find((m) => m.user_id === user?.id)?.role;
@@ -104,7 +108,7 @@ export function CampaignRoom() {
     async function loadCharacters() {
       const { data, error } = await supabase
         .from('characters')
-        .select('id, campaign_id, owner_id, name, sheet_data, is_npc')
+        .select('id, campaign_id, owner_id, name, sheet_data, is_npc, avatar_path')
         .eq('campaign_id', cid)
         .order('created_at', { ascending: true });
       if (!cancelled && !error) setCharacters((data ?? []) as unknown as CharacterRow[]);
@@ -186,63 +190,147 @@ export function CampaignRoom() {
     };
   }, [isGm, user, campaign?.game_system_id]);
 
+  // Avisa o jogador quando algo vira visível pra ele enquanto está numa
+  // aba diferente (ex: olhando o Mapa quando o Mestre revela um item na
+  // Ficha) — sem isto a revelação passa em branco até ele voltar pra lá
+  // por conta própria. Fica em CampaignRoom (sempre montado, não importa
+  // a aba ativa) de propósito — AbilityList/ItemList/Handouts só existem
+  // enquanto a aba deles está aberta, tarde demais pra notar a mudança.
+  // Não usa o `old` do payload (Realtime só manda a chave primária ali
+  // por padrão) — compara contra o que já sabíamos localmente.
+  useEffect(() => {
+    if (!campaignId || isGm) return;
+    let cancelled = false;
+    const tracked = new Map<string, boolean>();
+
+    const watchers: { table: string; nameField: string; kind: string }[] = [
+      { table: 'character_abilities', nameField: 'name', kind: 'Habilidade' },
+      { table: 'inventory_items', nameField: 'name', kind: 'Item' },
+      { table: 'handouts', nameField: 'title', kind: 'Handout' },
+      { table: 'map_tokens', nameField: 'label', kind: 'Algo' },
+      { table: 'initiative_entries', nameField: 'label', kind: 'Combatente' },
+    ];
+
+    const channels = watchers.map(({ table, nameField, kind }) => {
+      supabase
+        .from(table)
+        .select('id, visible_to_player')
+        .eq('campaign_id', campaignId)
+        .then(({ data }) => {
+          if (cancelled || !data) return;
+          for (const row of data as unknown as { id: string; visible_to_player: boolean }[]) {
+            tracked.set(`${table}:${row.id}`, row.visible_to_player);
+          }
+        });
+
+      return supabase
+        .channel(`reveal-watch-${table}-${campaignId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table, filter: `campaign_id=eq.${campaignId}` },
+          (payload) => {
+            if (payload.eventType === 'DELETE') {
+              tracked.delete(`${table}:${(payload.old as { id: string }).id}`);
+              return;
+            }
+            const row = payload.new as Record<string, unknown>;
+            const key = `${table}:${row.id}`;
+            const wasVisible = tracked.get(key);
+            const isVisible = row.visible_to_player === true;
+            tracked.set(key, isVisible);
+            // O Realtime aplica RLS por assinante: enquanto a linha está
+            // oculta, o jogador nunca recebe evento nenhum dela (nem o
+            // INSERT) — então na hora que ela vira visível, chega aqui
+            // sem nenhum estado anterior conhecido (`wasVisible` fica
+            // undefined, nunca `false`). Tratar "não sabia antes" e
+            // "sabia que estava oculto" como a mesma coisa é o correto:
+            // pra um jogador, qualquer uma das duas só pode significar
+            // "isso acabou de ficar visível".
+            if (isVisible && wasVisible !== true) {
+              const name = row[nameField] as string | undefined;
+              showToast(`🔔 Revelado: ${name ?? '—'} (${kind})`, 'success');
+            }
+          }
+        )
+        .subscribe();
+    });
+
+    return () => {
+      cancelled = true;
+      channels.forEach((c) => supabase.removeChannel(c));
+    };
+  }, [campaignId, isGm]);
+
   async function handleInstantiateTemplate() {
     if (!campaignId || !templateId) return;
     const template = templates.find((t) => t.id === templateId);
     if (!template) return;
+    const quantity = Math.max(1, Math.min(20, templateQty));
     setInstantiating(true);
 
-    const { data: character, error } = await supabase
-      .from('characters')
-      .insert({
-        campaign_id: campaignId,
-        owner_id: null,
-        name: template.name,
-        sheet_data: template.sheet_data,
-        is_npc: true,
-      })
-      .select('id, campaign_id, owner_id, name, sheet_data, is_npc')
-      .single();
+    const created: CharacterRow[] = [];
+    for (let i = 0; i < quantity; i++) {
+      const name = quantity > 1 ? `${template.name} ${i + 1}` : template.name;
+      const { data: character, error } = await supabase
+        .from('characters')
+        .insert({
+          campaign_id: campaignId,
+          owner_id: null,
+          name,
+          sheet_data: template.sheet_data,
+          is_npc: true,
+        })
+        .select('id, campaign_id, owner_id, name, sheet_data, is_npc, avatar_path')
+        .single();
 
-    if (error || !character) {
-      setInstantiating(false);
-      showToast(error?.message ?? 'Erro ao instanciar molde.', 'error');
-      return;
+      if (error || !character) {
+        showToast(error?.message ?? 'Erro ao instanciar molde.', 'error');
+        continue;
+      }
+
+      created.push(character as CharacterRow);
+
+      if (template.abilities.length > 0) {
+        await supabase.from('character_abilities').insert(
+          template.abilities.map((a) => ({
+            character_id: character.id,
+            campaign_id: campaignId,
+            name: a.name,
+            category: a.category ?? null,
+            cost: a.cost ?? null,
+            tier: a.tier ?? null,
+            description: a.description ?? null,
+            visible_to_player: false,
+          }))
+        );
+      }
+
+      if (template.items.length > 0) {
+        await supabase.from('inventory_items').insert(
+          template.items.map((it) => ({
+            campaign_id: campaignId,
+            character_id: character.id,
+            name: it.name,
+            description: it.description ?? null,
+            quantity: it.quantity ?? 1,
+            visible_to_player: false,
+          }))
+        );
+      }
     }
 
-    setCharacters((prev) => (prev.some((c) => c.id === character.id) ? prev : [...prev, character as CharacterRow]));
-
-    if (template.abilities.length > 0) {
-      await supabase.from('character_abilities').insert(
-        template.abilities.map((a) => ({
-          character_id: character.id,
-          campaign_id: campaignId,
-          name: a.name,
-          category: a.category ?? null,
-          cost: a.cost ?? null,
-          tier: a.tier ?? null,
-          description: a.description ?? null,
-          visible_to_player: false,
-        }))
-      );
-    }
-
-    if (template.items.length > 0) {
-      await supabase.from('inventory_items').insert(
-        template.items.map((it) => ({
-          campaign_id: campaignId,
-          character_id: character.id,
-          name: it.name,
-          description: it.description ?? null,
-          quantity: it.quantity ?? 1,
-          visible_to_player: false,
-        }))
+    if (created.length > 0) {
+      setCharacters((prev) => [...prev, ...created.filter((c) => !prev.some((p) => p.id === c.id))]);
+      logActivity(
+        campaignId,
+        quantity > 1 ? `${quantity}x ${template.name} entraram na mesa.` : `${template.name} entrou na mesa.`
       );
     }
 
     setInstantiating(false);
     setTemplateId('');
-    showToast(`${template.name} instanciado a partir do molde!`, 'success');
+    setTemplateQty(1);
+    if (created.length > 0) showToast(`${created.length}x ${template.name} instanciado(s) do molde!`, 'success');
   }
 
   async function handleSelectMap(mapId: string | null) {
@@ -271,7 +359,7 @@ export function CampaignRoom() {
         sheet_data: emptySheetData(schema),
         is_npc: isGm && !ownerId,
       })
-      .select('id, campaign_id, owner_id, name, sheet_data, is_npc')
+      .select('id, campaign_id, owner_id, name, sheet_data, is_npc, avatar_path')
       .single();
     setCreating(false);
     if (error) showToast(error.message, 'error');
@@ -280,6 +368,7 @@ export function CampaignRoom() {
       setNewCharName('');
       setNewCharOwnerId('');
       showToast('Personagem criado!', 'success');
+      logActivity(campaignId, `${newCharName.trim()} entrou na mesa.`);
     }
   }
 
@@ -394,8 +483,17 @@ export function CampaignRoom() {
                     </option>
                   ))}
                 </select>
+                <input
+                  type="number"
+                  className="qty-input"
+                  min={1}
+                  max={20}
+                  value={templateQty}
+                  onChange={(e) => setTemplateQty(Number(e.target.value))}
+                  title="Quantidade"
+                />
                 <button type="button" disabled={!templateId || instantiating} onClick={handleInstantiateTemplate}>
-                  + Instanciar
+                  {templateQty > 1 ? `+ Instanciar x${templateQty}` : '+ Instanciar'}
                 </button>
               </div>
             )}
@@ -423,6 +521,7 @@ export function CampaignRoom() {
           </section>
 
           <DiceRoller campaignId={campaign.id} myUserId={user?.id} />
+          <ActivityFeed campaignId={campaign.id} />
         </div>
 
         <div className="room-main">
@@ -481,6 +580,7 @@ export function CampaignRoom() {
               gameSystemId={campaign.game_system_id}
               editable={isGm || selected.owner_id === user?.id}
               isGm={isGm}
+              myUserId={user?.id}
             />
           ) : (
             <div className="empty-sheet-hint">

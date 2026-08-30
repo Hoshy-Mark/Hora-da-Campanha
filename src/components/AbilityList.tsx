@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
+import { logActivity } from '../lib/activity';
 
 interface Ability {
   id: string;
@@ -136,11 +137,13 @@ export function AbilityList({ characterId, campaignId, gameSystemId, isGm }: Pro
   }
 
   async function toggleVisible(a: Ability) {
+    const revealing = !a.visible_to_player;
     const { error } = await supabase
       .from('character_abilities')
-      .update({ visible_to_player: !a.visible_to_player })
+      .update({ visible_to_player: revealing })
       .eq('id', a.id);
     if (error) showToast(error.message, 'error');
+    else if (revealing) logActivity(campaignId, `Habilidade "${a.name}" foi revelada.`);
     await refresh();
   }
 
