@@ -242,6 +242,27 @@ export interface Database {
         }>;
         Relationships: Relationships;
       };
+      handouts: {
+        Row: {
+          id: string;
+          campaign_id: string;
+          title: string;
+          content: string | null;
+          image_path: string | null;
+          visible_to_player: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          campaign_id: string;
+          title: string;
+          content?: string | null;
+          image_path?: string | null;
+          visible_to_player?: boolean;
+        };
+        Update: Partial<{ title: string; content: string | null; image_path: string | null; visible_to_player: boolean }>;
+        Relationships: Relationships;
+      };
       maps: {
         Row: {
           id: string;

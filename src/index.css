@@ -812,6 +812,13 @@ h2 {
 }
 .gm-note-content { margin: 8px 0 0; font-size: 13.5px; white-space: pre-wrap; }
 
+/* ---------- Handouts ---------- */
+.handout-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.handout-card { display: flex; flex-direction: column; gap: 8px; }
+.handout-image-link { display: block; border-radius: var(--radius-sm); overflow: hidden; line-height: 0; }
+.handout-image { width: 100%; height: 160px; object-fit: cover; display: block; }
+.handout-card.hidden-item { border-left: 3px solid var(--accent); }
+
 .secrets-card { border-color: rgba(212,175,90,0.35); }
 .secret-item {
   display: flex;

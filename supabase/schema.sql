@@ -308,20 +308,26 @@ create policy "characters_select_members"
   to authenticated
   using (public.is_campaign_member(campaign_id));
 
-create policy "characters_insert_gm_only"
+-- Um jogador pode criar uma ficha pra si mesmo (owner_id = seu próprio
+-- id, is_npc = false) numa campanha em que já é membro; o Mestre pode
+-- criar qualquer ficha (incluindo NPCs e fichas de outros jogadores).
+create policy "characters_insert_gm_or_self"
   on public.characters for insert
   to authenticated
-  with check (public.is_campaign_gm(campaign_id));
+  with check (
+    public.is_campaign_gm(campaign_id)
+    or (owner_id = auth.uid() and is_npc = false and public.is_campaign_member(campaign_id))
+  );
 
 create policy "characters_update_owner_or_gm"
   on public.characters for update
   to authenticated
   using (owner_id = auth.uid() or public.is_campaign_gm(campaign_id));
 
-create policy "characters_delete_gm_only"
+create policy "characters_delete_gm_or_self"
   on public.characters for delete
   to authenticated
-  using (public.is_campaign_gm(campaign_id));
+  using (public.is_campaign_gm(campaign_id) or owner_id = auth.uid());
 
 -- =====================================================================
 -- CHARACTER_SECRETS — informações do personagem que o próprio jogador
@@ -446,6 +452,46 @@ create policy "gm_notes_gm_only"
   to authenticated
   using (public.is_campaign_gm(campaign_id))
   with check (public.is_campaign_gm(campaign_id));
+
+-- =====================================================================
+-- HANDOUTS — imagens/textos que o Mestre revela pros jogadores no
+-- momento certo (cartas, retratos de NPC, pistas, mapas de tesouro).
+-- Mesmo mecanismo de revelação gradual do resto do app.
+-- =====================================================================
+create table public.handouts (
+  id uuid primary key default gen_random_uuid(),
+  campaign_id uuid not null references public.campaigns(id) on delete cascade,
+  title text not null,
+  content text,
+  image_path text,
+  visible_to_player boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+alter table public.handouts enable row level security;
+
+create policy "handouts_select_visible_or_gm"
+  on public.handouts for select
+  to authenticated
+  using (
+    (visible_to_player = true and public.is_campaign_member(campaign_id))
+    or public.is_campaign_gm(campaign_id)
+  );
+
+create policy "handouts_insert_gm_only"
+  on public.handouts for insert
+  to authenticated
+  with check (public.is_campaign_gm(campaign_id));
+
+create policy "handouts_update_gm_only"
+  on public.handouts for update
+  to authenticated
+  using (public.is_campaign_gm(campaign_id));
+
+create policy "handouts_delete_gm_only"
+  on public.handouts for delete
+  to authenticated
+  using (public.is_campaign_gm(campaign_id));
 
 -- =====================================================================
 -- INITIATIVE_ENTRIES — rastreador de iniciativa/combate
@@ -669,6 +715,28 @@ create policy "maps_bucket_delete_gm"
   using (bucket_id = 'maps' and public.is_campaign_gm((storage.foldername(name))[1]::uuid));
 
 -- =====================================================================
+-- STORAGE — bucket público "handouts", mesmo esquema de permissão do
+-- bucket "maps" acima.
+-- =====================================================================
+insert into storage.buckets (id, name, public)
+values ('handouts', 'handouts', true)
+on conflict (id) do nothing;
+
+create policy "handouts_bucket_read_public"
+  on storage.objects for select
+  using (bucket_id = 'handouts');
+
+create policy "handouts_bucket_insert_gm"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'handouts' and public.is_campaign_gm((storage.foldername(name))[1]::uuid));
+
+create policy "handouts_bucket_delete_gm"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'handouts' and public.is_campaign_gm((storage.foldername(name))[1]::uuid));
+
+-- =====================================================================
 -- REALTIME — habilita replicação para as tabelas que a UI sincroniza ao vivo
 -- =====================================================================
 alter publication supabase_realtime add table public.characters;
@@ -683,3 +751,4 @@ alter publication supabase_realtime add table public.gm_notes;
 alter publication supabase_realtime add table public.character_secrets;
 alter publication supabase_realtime add table public.dice_rolls;
 alter publication supabase_realtime add table public.monster_templates;
+alter publication supabase_realtime add table public.handouts;

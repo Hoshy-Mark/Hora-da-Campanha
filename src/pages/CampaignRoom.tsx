@@ -9,6 +9,7 @@ import { CharacterSheet } from '../components/CharacterSheet';
 import { MapBoard } from '../components/MapBoard';
 import { CombatTracker } from '../components/CombatTracker';
 import { GmNotes } from '../components/GmNotes';
+import { Handouts } from '../components/Handouts';
 import { DiceRoller } from '../components/DiceRoller';
 import { useOnlineUserIds } from '../lib/usePresence';
 import { useToast } from '../context/ToastContext';
@@ -55,7 +56,7 @@ export function CampaignRoom() {
   const [members, setMembers] = useState<Member[]>([]);
   const [characters, setCharacters] = useState<CharacterRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeView, setActiveView] = useState<'sheet' | 'map' | 'combat' | 'notes'>('sheet');
+  const [activeView, setActiveView] = useState<'sheet' | 'map' | 'combat' | 'handouts' | 'notes'>('sheet');
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [newCharName, setNewCharName] = useState('');
@@ -259,7 +260,8 @@ export function CampaignRoom() {
     e.preventDefault();
     if (!campaignId || !schema || !newCharName.trim()) return;
     setCreating(true);
-    const ownerId = newCharOwnerId || null;
+    // Mestre escolhe o dono (ou deixa NPC); jogador só cria pra si mesmo.
+    const ownerId = isGm ? newCharOwnerId || null : user!.id;
     const { data, error } = await supabase
       .from('characters')
       .insert({
@@ -267,7 +269,7 @@ export function CampaignRoom() {
         owner_id: ownerId,
         name: newCharName.trim(),
         sheet_data: emptySheetData(schema),
-        is_npc: !ownerId,
+        is_npc: isGm && !ownerId,
       })
       .select('id, campaign_id, owner_id, name, sheet_data, is_npc')
       .single();
@@ -368,6 +370,19 @@ export function CampaignRoom() {
               </form>
             )}
 
+            {!isGm && schema && (
+              <form onSubmit={handleCreateCharacter} className="create-character-form">
+                <input
+                  placeholder="Nome do seu personagem"
+                  value={newCharName}
+                  onChange={(e) => setNewCharName(e.target.value)}
+                />
+                <button type="submit" disabled={creating || !newCharName.trim()}>
+                  + Criar meu personagem
+                </button>
+              </form>
+            )}
+
             {isGm && templates.length > 0 && (
               <div className="create-character-form instantiate-template-form">
                 <select value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
@@ -400,7 +415,7 @@ export function CampaignRoom() {
                       setSelectedId(c.id === selectedId ? null : c.id);
                       setActiveView('sheet');
                     }}
-                    onDelete={isGm ? () => handleDeleteCharacter(c.id) : undefined}
+                    onDelete={isGm || c.owner_id === user?.id ? () => handleDeleteCharacter(c.id) : undefined}
                   />
                 ))}
               </div>
@@ -421,6 +436,9 @@ export function CampaignRoom() {
             <button className={activeView === 'combat' ? 'active' : ''} onClick={() => setActiveView('combat')}>
               Combate
             </button>
+            <button className={activeView === 'handouts' ? 'active' : ''} onClick={() => setActiveView('handouts')}>
+              Handouts
+            </button>
             {isGm && (
               <button className={activeView === 'notes' ? 'active' : ''} onClick={() => setActiveView('notes')}>
                 Notas do Mestre
@@ -430,6 +448,8 @@ export function CampaignRoom() {
 
           {activeView === 'notes' && isGm ? (
             <GmNotes campaignId={campaign.id} />
+          ) : activeView === 'handouts' ? (
+            <Handouts campaignId={campaign.id} isGm={isGm} />
           ) : activeView === 'combat' ? (
             <CombatTracker
               campaignId={campaign.id}
