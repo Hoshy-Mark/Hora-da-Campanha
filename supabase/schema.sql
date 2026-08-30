@@ -504,6 +504,8 @@ create table public.initiative_entries (
   initiative int not null default 0,
   is_current boolean not null default false,
   visible_to_player boolean not null default true, -- mesmo mecanismo de revelação gradual do resto do app
+  status_effects jsonb not null default '[]'::jsonb, -- independente do status_effects de map_tokens
+  is_defeated boolean not null default false,
   created_at timestamptz not null default now()
 );
 

@@ -838,19 +838,24 @@ h2 {
 .combat-controls { display: flex; gap: 14px; }
 .combat-add-row { align-items: center; margin-bottom: 4px; }
 .combat-add-row select, .combat-add-row input:not(.qty-input) { flex: 1; }
+.combat-hint { margin: -6px 0 0; font-size: 12.5px; }
 
 .initiative-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; counter-reset: none; }
 .initiative-list li {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 8px 12px;
 }
+.initiative-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .initiative-list li.current-turn { border-color: var(--accent); background: rgba(212,175,90,0.08); }
 .initiative-list li.hidden-item { border-left: 3px solid var(--accent); }
+.initiative-list li.defeated { opacity: 0.55; }
+.initiative-list li.defeated .initiative-label { text-decoration: line-through; }
+.initiative-order { font-size: 11px; color: var(--text-muted); min-width: 22px; }
 .initiative-value {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 700;
@@ -859,8 +864,16 @@ h2 {
   text-align: center;
 }
 .initiative-value .resource-num { width: 46px; }
-.initiative-label { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500; }
+.initiative-label { flex: 1; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13.5px; font-weight: 500; }
 .tag.current-tag { color: var(--accent-ink); background: var(--accent); }
+
+.combatant-resources {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
 
 /* ---------- Notas do Mestre / Segredos ---------- */
 .gm-notes-hint { margin-top: -4px; margin-bottom: 1.25rem; font-size: 12.5px; }

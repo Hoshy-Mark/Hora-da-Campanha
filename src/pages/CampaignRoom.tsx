@@ -454,7 +454,8 @@ export function CampaignRoom() {
             <CombatTracker
               campaignId={campaign.id}
               isGm={isGm}
-              characters={characters.map((c) => ({ id: c.id, name: c.name }))}
+              characters={characters.map((c) => ({ id: c.id, name: c.name, owner_id: c.owner_id, sheet_data: c.sheet_data }))}
+              schema={schema}
               myUserId={user?.id}
             />
           ) : activeView === 'map' ? (

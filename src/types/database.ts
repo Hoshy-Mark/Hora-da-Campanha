@@ -164,6 +164,8 @@ export interface Database {
           initiative: number;
           is_current: boolean;
           visible_to_player: boolean;
+          status_effects: string[];
+          is_defeated: boolean;
           created_at: string;
         };
         Insert: {
@@ -174,12 +176,16 @@ export interface Database {
           initiative?: number;
           is_current?: boolean;
           visible_to_player?: boolean;
+          status_effects?: string[];
+          is_defeated?: boolean;
         };
         Update: Partial<{
           label: string;
           initiative: number;
           is_current: boolean;
           visible_to_player: boolean;
+          status_effects: string[];
+          is_defeated: boolean;
         }>;
         Relationships: Relationships;
       };
