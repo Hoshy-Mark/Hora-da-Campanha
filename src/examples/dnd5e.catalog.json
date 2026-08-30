@@ -1,0 +1,8 @@
+[
+  { "kind": "ability", "name": "Bola de Fogo", "category": "Magia (Evocação)", "cost": "Espaço de 3º círculo", "tier": "3", "description": "Explosão de fogo num raio de 6m; alvos na área fazem teste de Destreza." },
+  { "kind": "ability", "name": "Curar Ferimentos", "category": "Magia (Abjuração/Cura)", "cost": "Espaço de 1º círculo", "tier": "1", "description": "Restaura pontos de vida a um alvo tocado." },
+  { "kind": "ability", "name": "Ataque Fortuito", "category": "Classe (Bárbaro)", "cost": "1 uso de Fúria", "tier": "-", "description": "Vantagem no próximo ataque corpo a corpo enquanto em Fúria." },
+  { "kind": "item", "name": "Poção de Cura", "description": "Restaura 2d4+2 pontos de vida ao ser consumida.", "defaultQuantity": 1 },
+  { "kind": "item", "name": "Espada Longa", "description": "Arma marcial corpo a corpo, 1d8 de dano cortante.", "defaultQuantity": 1 },
+  { "kind": "item", "name": "Kit de Ladrão", "description": "Ferramentas para arrombar fechaduras e desarmar armadilhas.", "defaultQuantity": 1 }
+]

@@ -470,6 +470,7 @@ export function CampaignRoom() {
             <CharacterSheet
               character={selected}
               schema={schema}
+              gameSystemId={campaign.game_system_id}
               editable={isGm || selected.owner_id === user?.id}
               isGm={isGm}
             />

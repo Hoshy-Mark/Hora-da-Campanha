@@ -587,6 +587,35 @@ create policy "monster_templates_owner_all"
   with check (owner_id = auth.uid());
 
 -- =====================================================================
+-- CATALOG_ENTRIES — itens/habilidades "padrão" de um sistema,
+-- reutilizáveis entre qualquer personagem de campanhas que usem esse
+-- sistema. Mesma ideia de dono do monster_templates; uma linha por
+-- entrada (não um documento grande) pra listar/filtrar fácil num
+-- seletor na hora de criar um item/habilidade de personagem.
+-- =====================================================================
+create table public.catalog_entries (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references public.profiles(id) on delete cascade,
+  game_system_id uuid not null references public.game_systems(id) on delete cascade,
+  kind text not null check (kind in ('item', 'ability')),
+  name text not null,
+  category text,
+  cost text,
+  tier text,
+  description text,
+  default_quantity int,
+  created_at timestamptz not null default now()
+);
+
+alter table public.catalog_entries enable row level security;
+
+create policy "catalog_entries_owner_all"
+  on public.catalog_entries for all
+  to authenticated
+  using (owner_id = auth.uid())
+  with check (owner_id = auth.uid());
+
+-- =====================================================================
 -- MAPS — mapas de uma campanha, em dois formatos possíveis (`kind`):
 -- 'image' é upload de PNG/JPEG pro bucket de Storage "maps" (criado mais
 -- abaixo), com `image_path` no formato "{campaign_id}/{arquivo}" — as
@@ -753,3 +782,4 @@ alter publication supabase_realtime add table public.character_secrets;
 alter publication supabase_realtime add table public.dice_rolls;
 alter publication supabase_realtime add table public.monster_templates;
 alter publication supabase_realtime add table public.handouts;
+alter publication supabase_realtime add table public.catalog_entries;

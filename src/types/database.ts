@@ -206,6 +206,42 @@ export interface Database {
         Update: Record<string, never>;
         Relationships: Relationships;
       };
+      catalog_entries: {
+        Row: {
+          id: string;
+          owner_id: string;
+          game_system_id: string;
+          kind: 'item' | 'ability';
+          name: string;
+          category: string | null;
+          cost: string | null;
+          tier: string | null;
+          description: string | null;
+          default_quantity: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          game_system_id: string;
+          kind: 'item' | 'ability';
+          name: string;
+          category?: string | null;
+          cost?: string | null;
+          tier?: string | null;
+          description?: string | null;
+          default_quantity?: number | null;
+        };
+        Update: Partial<{
+          name: string;
+          category: string | null;
+          cost: string | null;
+          tier: string | null;
+          description: string | null;
+          default_quantity: number | null;
+        }>;
+        Relationships: Relationships;
+      };
       monster_templates: {
         Row: {
           id: string;

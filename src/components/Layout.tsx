@@ -18,6 +18,9 @@ export function Layout() {
           <NavLink to="/bestiary" className={({ isActive }) => (isActive ? 'active' : '')}>
             Bestiário
           </NavLink>
+          <NavLink to="/catalog" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Catálogo
+          </NavLink>
         </nav>
         <div className="sidebar-footer">
           <span className="sidebar-user muted">{user?.email}</span>

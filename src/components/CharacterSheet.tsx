@@ -20,11 +20,12 @@ interface CharacterRow {
 interface Props {
   character: CharacterRow;
   schema: GameSystemSchema;
+  gameSystemId: string;
   editable: boolean;
   isGm: boolean;
 }
 
-export function CharacterSheet({ character, schema, editable, isGm }: Props) {
+export function CharacterSheet({ character, schema, gameSystemId, editable, isGm }: Props) {
   const [data, setData] = useState<SheetData>(character.sheet_data);
   const [saving, setSaving] = useState(false);
   const dirtyRef = useRef(false);
@@ -84,8 +85,8 @@ export function CharacterSheet({ character, schema, editable, isGm }: Props) {
 
       <SheetFieldsEditor schema={schema} data={data} editable={editable} onFieldChange={setField} />
 
-      <AbilityList characterId={character.id} campaignId={character.campaign_id} isGm={isGm} />
-      <ItemList characterId={character.id} campaignId={character.campaign_id} isGm={isGm} />
+      <AbilityList characterId={character.id} campaignId={character.campaign_id} gameSystemId={gameSystemId} isGm={isGm} />
+      <ItemList characterId={character.id} campaignId={character.campaign_id} gameSystemId={gameSystemId} isGm={isGm} />
       {isGm && <CharacterSecrets characterId={character.id} campaignId={character.campaign_id} />}
     </div>
   );

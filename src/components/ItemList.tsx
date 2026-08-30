@@ -12,20 +12,59 @@ interface Item {
   visible_to_player: boolean;
 }
 
+interface CatalogItem {
+  id: string;
+  name: string;
+  description: string | null;
+  default_quantity: number | null;
+}
+
 interface Props {
   characterId: string;
   campaignId: string;
+  gameSystemId: string;
   isGm: boolean;
 }
 
 const emptyForm = { name: '', description: '', quantity: '1' };
 
-export function ItemList({ characterId, campaignId, isGm }: Props) {
+export function ItemList({ characterId, campaignId, gameSystemId, isGm }: Props) {
   const { showToast } = useToast();
   const [items, setItems] = useState<Item[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [catalogPick, setCatalogPick] = useState('');
+
+  useEffect(() => {
+    if (!isGm) return;
+    let cancelled = false;
+    supabase
+      .from('catalog_entries')
+      .select('id, name, description, default_quantity')
+      .eq('game_system_id', gameSystemId)
+      .eq('kind', 'item')
+      .order('name', { ascending: true })
+      .then(({ data }) => {
+        if (!cancelled) setCatalog((data ?? []) as unknown as CatalogItem[]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isGm, gameSystemId]);
+
+  function pickFromCatalog(id: string) {
+    setCatalogPick(id);
+    const entry = catalog.find((c) => c.id === id);
+    if (!entry) return;
+    setForm({
+      name: entry.name,
+      description: entry.description ?? '',
+      quantity: String(entry.default_quantity ?? 1),
+    });
+    setShowForm(true);
+  }
 
   async function refresh() {
     const { data } = await supabase
@@ -83,6 +122,7 @@ export function ItemList({ characterId, campaignId, isGm }: Props) {
       return;
     }
     setForm(emptyForm);
+    setCatalogPick('');
     setShowForm(false);
     await refresh();
   }
@@ -124,6 +164,16 @@ export function ItemList({ characterId, campaignId, isGm }: Props) {
 
       {isGm && showForm && (
         <form onSubmit={handleCreate} className="reveal-form">
+          {catalog.length > 0 && (
+            <select value={catalogPick} onChange={(e) => pickFromCatalog(e.target.value)}>
+              <option value="">Do catálogo… (ou digite abaixo)</option>
+              {catalog.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          )}
           <div className="reveal-form-row">
             <input placeholder="Nome do item" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <input

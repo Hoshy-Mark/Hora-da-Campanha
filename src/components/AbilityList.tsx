@@ -14,20 +14,63 @@ interface Ability {
   visible_to_player: boolean;
 }
 
+interface CatalogAbility {
+  id: string;
+  name: string;
+  category: string | null;
+  cost: string | null;
+  tier: string | null;
+  description: string | null;
+}
+
 interface Props {
   characterId: string;
   campaignId: string;
+  gameSystemId: string;
   isGm: boolean;
 }
 
 const emptyForm = { name: '', category: '', cost: '', tier: '', description: '' };
 
-export function AbilityList({ characterId, campaignId, isGm }: Props) {
+export function AbilityList({ characterId, campaignId, gameSystemId, isGm }: Props) {
   const { showToast } = useToast();
   const [abilities, setAbilities] = useState<Ability[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [catalog, setCatalog] = useState<CatalogAbility[]>([]);
+  const [catalogPick, setCatalogPick] = useState('');
+
+  useEffect(() => {
+    if (!isGm) return;
+    let cancelled = false;
+    supabase
+      .from('catalog_entries')
+      .select('id, name, category, cost, tier, description')
+      .eq('game_system_id', gameSystemId)
+      .eq('kind', 'ability')
+      .order('name', { ascending: true })
+      .then(({ data }) => {
+        if (!cancelled) setCatalog((data ?? []) as unknown as CatalogAbility[]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isGm, gameSystemId]);
+
+  function pickFromCatalog(id: string) {
+    setCatalogPick(id);
+    const entry = catalog.find((c) => c.id === id);
+    if (!entry) return;
+    setForm({
+      name: entry.name,
+      category: entry.category ?? '',
+      cost: entry.cost ?? '',
+      tier: entry.tier ?? '',
+      description: entry.description ?? '',
+    });
+    setShowForm(true);
+  }
 
   async function refresh() {
     const { data } = await supabase
@@ -87,6 +130,7 @@ export function AbilityList({ characterId, campaignId, isGm }: Props) {
       return;
     }
     setForm(emptyForm);
+    setCatalogPick('');
     setShowForm(false);
     await refresh();
   }
@@ -121,6 +165,16 @@ export function AbilityList({ characterId, campaignId, isGm }: Props) {
 
       {isGm && showForm && (
         <form onSubmit={handleCreate} className="reveal-form">
+          {catalog.length > 0 && (
+            <select value={catalogPick} onChange={(e) => pickFromCatalog(e.target.value)}>
+              <option value="">Do catálogo… (ou digite abaixo)</option>
+              {catalog.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          )}
           <input placeholder="Nome" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <div className="reveal-form-row">
             <input

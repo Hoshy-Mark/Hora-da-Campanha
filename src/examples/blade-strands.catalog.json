@@ -1,0 +1,10 @@
+[
+  { "kind": "ability", "name": "Corte Ressonante", "category": "Física", "cost": "Estamina", "tier": "I", "description": "Um golpe de lâmina que ecoa a intenção do usuário, causando dano extra em alvos já feridos." },
+  { "kind": "ability", "name": "Passo Fantasma", "category": "Física", "cost": "Estamina", "tier": "I", "description": "Um deslocamento curto e silencioso, ignorando terreno difícil por uma rodada." },
+  { "kind": "ability", "name": "Véu de Spirit", "category": "Espiritual", "cost": "Spirit", "tier": "II", "description": "Cria uma barreira etérea que absorve o próximo golpe recebido." },
+  { "kind": "ability", "name": "Eco da Ancoragem", "category": "Mental", "cost": "Mana", "tier": "II", "description": "Reforça a Identidade do usuário, concedendo resistência a efeitos de controle mental por uma cena." },
+  { "kind": "ability", "name": "Fenda do Vazio", "category": "Física", "cost": "Spirit + Mana", "tier": "III", "description": "Um golpe devastador que rasga a Soul do alvo, ignorando parte de sua Tolerância." },
+  { "kind": "item", "name": "Lâmina de Strand", "description": "Arma padrão dos usuários de Blade Strands, sintoniza com o Spirit do portador.", "defaultQuantity": 1 },
+  { "kind": "item", "name": "Frasco de Regeneração", "description": "Restaura uma porção de Estamina quando consumido.", "defaultQuantity": 3 },
+  { "kind": "item", "name": "Fragmento de Ancoragem", "description": "Item raro que estabiliza temporariamente a Identidade em situações extremas.", "defaultQuantity": 1 }
+]
