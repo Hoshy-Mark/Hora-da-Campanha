@@ -28,8 +28,22 @@ export interface TileMapData {
   cols: number;
   rows: number;
   tiles: TileType[]; // comprimento cols*rows, índice = row*cols+col
+  // Névoa de guerra: ausente = recurso desligado, mapa sempre visível por
+  // inteiro (comportamento de antes desta feature existir, e o que todo
+  // mapa criado antes dela continua tendo). Presente = um booleano por
+  // célula, true = revelado pros jogadores. O Mestre sempre vê o terreno
+  // de verdade independente disso; só os jogadores enxergam a máscara.
+  fog?: boolean[];
 }
 
 export function emptyTileMap(cols: number, rows: number): TileMapData {
   return { cols, rows, tiles: Array(cols * rows).fill('floor') };
 }
+
+export const FOG_HIDDEN_COLOR = '#08090c';
+
+export function emptyFog(cols: number, rows: number, revealed: boolean): boolean[] {
+  return Array(cols * rows).fill(revealed);
+}
+
+export type PaintTool = { mode: 'terrain'; tile: TileType } | { mode: 'fog'; reveal: boolean };

@@ -4,7 +4,16 @@ import { debounce } from '../lib/debounce';
 import { useToast } from '../context/ToastContext';
 import { MapToken, type TokenRow } from './MapToken';
 import { TileMapBoard } from './TileMapBoard';
-import { emptyTileMap, TILE_COLOR, TILE_LABEL, TILE_TYPES, type TileMapData, type TileType } from '../types/tilemap';
+import {
+  emptyFog,
+  emptyTileMap,
+  TILE_COLOR,
+  TILE_LABEL,
+  TILE_TYPES,
+  type PaintTool,
+  type TileMapData,
+  type TileType,
+} from '../types/tilemap';
 
 interface MapRow {
   id: string;
@@ -50,6 +59,8 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   const [tilemapCols, setTilemapCols] = useState(14);
   const [tilemapRows, setTilemapRows] = useState(10);
   const [tileTool, setTileTool] = useState<TileType>('wall');
+  const [tileMode, setTileMode] = useState<'terrain' | 'fog'>('terrain');
+  const [fogBrush, setFogBrush] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
@@ -241,6 +252,27 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     persistTiles(mapId, next);
   }
 
+  function handleEnableFog() {
+    if (!currentMap?.tile_data) return;
+    const { cols, rows } = currentMap.tile_data;
+    handleTileChange(currentMap.id, { ...currentMap.tile_data, fog: emptyFog(cols, rows, false) });
+  }
+
+  function handleDisableFog() {
+    if (!currentMap?.tile_data) return;
+    if (!confirm('Desativar a névoa de guerra apaga o que já foi revelado. Continuar?')) return;
+    const { fog: _fog, ...rest } = currentMap.tile_data;
+    handleTileChange(currentMap.id, rest);
+  }
+
+  function handleFogAll(reveal: boolean) {
+    if (!currentMap?.tile_data?.fog) return;
+    const { cols, rows } = currentMap.tile_data;
+    handleTileChange(currentMap.id, { ...currentMap.tile_data, fog: emptyFog(cols, rows, reveal) });
+  }
+
+  const paintTool: PaintTool = tileMode === 'terrain' ? { mode: 'terrain', tile: tileTool } : { mode: 'fog', reveal: fogBrush };
+
   async function handleAddToken(e: FormEvent) {
     e.preventDefault();
     if (!currentMapId || (!newTokenLabel.trim() && !newTokenCharacterId)) return;
@@ -383,20 +415,68 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
       ) : (
         <>
           {isGm && currentMap.kind === 'tilemap' && (
-            <div className="tile-palette">
-              {TILE_TYPES.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className={`tile-palette-btn ${tileTool === t ? 'active' : ''}`}
-                  onClick={() => setTileTool(t)}
-                  title={TILE_LABEL[t]}
-                >
-                  <span className="tile-swatch" style={{ background: TILE_COLOR[t] }} />
-                  {TILE_LABEL[t]}
+            <>
+              <div className="map-kind-tabs">
+                <button type="button" className={tileMode === 'terrain' ? 'active' : ''} onClick={() => setTileMode('terrain')}>
+                  Terreno
                 </button>
-              ))}
-            </div>
+                <button type="button" className={tileMode === 'fog' ? 'active' : ''} onClick={() => setTileMode('fog')}>
+                  Névoa de guerra
+                </button>
+              </div>
+
+              {tileMode === 'terrain' ? (
+                <div className="tile-palette">
+                  {TILE_TYPES.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      className={`tile-palette-btn ${tileTool === t ? 'active' : ''}`}
+                      onClick={() => setTileTool(t)}
+                      title={TILE_LABEL[t]}
+                    >
+                      <span className="tile-swatch" style={{ background: TILE_COLOR[t] }} />
+                      {TILE_LABEL[t]}
+                    </button>
+                  ))}
+                </div>
+              ) : !currentMap.tile_data?.fog ? (
+                <div className="tile-palette">
+                  <p className="muted" style={{ margin: 0, flexBasis: '100%' }}>
+                    Névoa desligada — o mapa está visível por inteiro pros jogadores.
+                  </p>
+                  <button type="button" onClick={handleEnableFog}>
+                    Ativar névoa (esconde tudo)
+                  </button>
+                </div>
+              ) : (
+                <div className="tile-palette">
+                  <button
+                    type="button"
+                    className={`tile-palette-btn ${fogBrush ? 'active' : ''}`}
+                    onClick={() => setFogBrush(true)}
+                  >
+                    Revelar
+                  </button>
+                  <button
+                    type="button"
+                    className={`tile-palette-btn ${!fogBrush ? 'active' : ''}`}
+                    onClick={() => setFogBrush(false)}
+                  >
+                    Ocultar
+                  </button>
+                  <button type="button" className="link-btn" onClick={() => handleFogAll(true)}>
+                    Revelar tudo
+                  </button>
+                  <button type="button" className="link-btn" onClick={() => handleFogAll(false)}>
+                    Ocultar tudo
+                  </button>
+                  <button type="button" className="link-btn danger" onClick={handleDisableFog}>
+                    Desativar névoa
+                  </button>
+                </div>
+              )}
+            </>
           )}
 
           <div className="map-image-board" ref={boardRef}>
@@ -404,7 +484,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
               <TileMapBoard
                 data={currentMap.tile_data}
                 editable={isGm}
-                tool={tileTool}
+                tool={paintTool}
                 onChange={(next) => handleTileChange(currentMap.id, next)}
               />
             ) : (
