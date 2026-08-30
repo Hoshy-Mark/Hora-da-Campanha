@@ -680,6 +680,47 @@ h2 {
   font-size: 12.5px;
 }
 
+.map-kind-tabs { display: flex; gap: 8px; margin-bottom: 4px; }
+.map-kind-tabs button {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.map-kind-tabs button.active { border-color: var(--accent); color: var(--accent); }
+
+.tile-palette { display: flex; flex-wrap: wrap; gap: 6px; }
+.tile-palette-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.tile-palette-btn.active { border-color: var(--accent); color: var(--accent); }
+.tile-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--border-strong);
+  flex: none;
+}
+
+.tile-map-grid {
+  display: grid;
+  width: 100%;
+  gap: 1px;
+  background: var(--border);
+}
+.tile-cell { touch-action: none; cursor: pointer; }
+
 .map-image-board {
   position: relative;
   width: 100%;

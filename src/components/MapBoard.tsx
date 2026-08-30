@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { supabase } from '../lib/supabase';
+import { debounce } from '../lib/debounce';
 import { useToast } from '../context/ToastContext';
 import { MapToken, type TokenRow } from './MapToken';
+import { TileMapBoard } from './TileMapBoard';
+import { emptyTileMap, TILE_COLOR, TILE_LABEL, TILE_TYPES, type TileMapData, type TileType } from '../types/tilemap';
 
 interface MapRow {
   id: string;
   campaign_id: string;
   name: string;
-  image_path: string;
+  kind: 'image' | 'tilemap';
+  image_path: string | null;
+  tile_data: TileMapData | null;
 }
 
 interface CharacterOption {
@@ -38,9 +43,13 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
   const [maps, setMaps] = useState<MapRow[]>([]);
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [showUpload, setShowUpload] = useState(false);
+  const [newMapKind, setNewMapKind] = useState<'image' | 'tilemap'>('image');
   const [uploadName, setUploadName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [tilemapCols, setTilemapCols] = useState(14);
+  const [tilemapRows, setTilemapRows] = useState(10);
+  const [tileTool, setTileTool] = useState<TileType>('wall');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
@@ -56,7 +65,7 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
     async function loadMaps() {
       const { data } = await supabase
         .from('maps')
-        .select('id, campaign_id, name, image_path')
+        .select('id, campaign_id, name, kind, image_path, tile_data')
         .eq('campaign_id', campaignId)
         .order('created_at', { ascending: true });
       if (!cancelled) setMaps((data ?? []) as unknown as MapRow[]);
@@ -144,8 +153,8 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
 
     const { data, error: insertErr } = await supabase
       .from('maps')
-      .insert({ campaign_id: campaignId, name: uploadName.trim(), image_path: path })
-      .select('id, campaign_id, name, image_path')
+      .insert({ campaign_id: campaignId, name: uploadName.trim(), kind: 'image', image_path: path })
+      .select('id, campaign_id, name, kind, image_path, tile_data')
       .single();
 
     setUploading(false);
@@ -164,6 +173,47 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
       onSelectMap(data.id);
       showToast('Mapa enviado!', 'success');
     }
+  }
+
+  async function handleCreateTilemap(e: FormEvent) {
+    e.preventDefault();
+    if (!uploadName.trim()) return;
+    const cols = Math.max(4, Math.min(40, tilemapCols));
+    const rows = Math.max(4, Math.min(40, tilemapRows));
+    setUploading(true);
+    setUploadError(null);
+
+    const { data, error } = await supabase
+      .from('maps')
+      .insert({ campaign_id: campaignId, name: uploadName.trim(), kind: 'tilemap', tile_data: emptyTileMap(cols, rows) })
+      .select('id, campaign_id, name, kind, image_path, tile_data')
+      .single();
+
+    setUploading(false);
+    if (error) {
+      setUploadError(error.message);
+      return;
+    }
+
+    setUploadName('');
+    setShowUpload(false);
+    if (data) {
+      setMaps((prev) => (prev.some((m) => m.id === data.id) ? prev : [...prev, data as MapRow]));
+      onSelectMap(data.id);
+      showToast('Mapa de tiles criado!', 'success');
+    }
+  }
+
+  const persistTiles = useRef(
+    debounce(async (mapId: string, next: TileMapData) => {
+      const { error } = await supabase.from('maps').update({ tile_data: next }).eq('id', mapId);
+      if (error) showToast(error.message, 'error');
+    }, 400)
+  ).current;
+
+  function handleTileChange(mapId: string, next: TileMapData) {
+    setMaps((prev) => prev.map((m) => (m.id === mapId ? { ...m, tile_data: next } : m)));
+    persistTiles(mapId, next);
   }
 
   async function handleAddToken(e: FormEvent) {
@@ -247,14 +297,54 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
       </div>
 
       {isGm && showUpload && (
-        <form onSubmit={handleUpload} className="reveal-form map-upload-form">
-          <input placeholder="Nome do mapa" value={uploadName} onChange={(e) => setUploadName(e.target.value)} />
-          <input ref={fileInputRef} type="file" accept="image/*" />
-          {uploadError && <p className="auth-error">{uploadError}</p>}
-          <button type="submit" disabled={uploading || !uploadName.trim()}>
-            {uploading ? 'Enviando…' : 'Enviar mapa'}
-          </button>
-        </form>
+        <div className="reveal-form map-upload-form">
+          <div className="map-kind-tabs">
+            <button type="button" className={newMapKind === 'image' ? 'active' : ''} onClick={() => setNewMapKind('image')}>
+              Upload de imagem
+            </button>
+            <button type="button" className={newMapKind === 'tilemap' ? 'active' : ''} onClick={() => setNewMapKind('tilemap')}>
+              Mapa de tiles
+            </button>
+          </div>
+
+          {newMapKind === 'image' ? (
+            <form onSubmit={handleUpload}>
+              <input placeholder="Nome do mapa" value={uploadName} onChange={(e) => setUploadName(e.target.value)} />
+              <input ref={fileInputRef} type="file" accept="image/*" />
+              {uploadError && <p className="auth-error">{uploadError}</p>}
+              <button type="submit" disabled={uploading || !uploadName.trim()}>
+                {uploading ? 'Enviando…' : 'Enviar mapa'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleCreateTilemap}>
+              <input placeholder="Nome do mapa" value={uploadName} onChange={(e) => setUploadName(e.target.value)} />
+              <div className="reveal-form-row">
+                <input
+                  type="number"
+                  min={4}
+                  max={40}
+                  value={tilemapCols}
+                  onChange={(e) => setTilemapCols(Number(e.target.value))}
+                  title="Colunas"
+                />
+                <input
+                  type="number"
+                  min={4}
+                  max={40}
+                  value={tilemapRows}
+                  onChange={(e) => setTilemapRows(Number(e.target.value))}
+                  title="Linhas"
+                />
+              </div>
+              <small className="muted">Colunas x linhas do grid (dá pra pintar depois de criar)</small>
+              {uploadError && <p className="auth-error">{uploadError}</p>}
+              <button type="submit" disabled={uploading || !uploadName.trim()}>
+                {uploading ? 'Criando…' : 'Criar mapa de tiles'}
+              </button>
+            </form>
+          )}
+        </div>
       )}
 
       {!currentMap ? (
@@ -267,8 +357,34 @@ export function MapBoard({ campaignId, currentMapId, onSelectMap, isGm, characte
         </div>
       ) : (
         <>
+          {isGm && currentMap.kind === 'tilemap' && (
+            <div className="tile-palette">
+              {TILE_TYPES.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`tile-palette-btn ${tileTool === t ? 'active' : ''}`}
+                  onClick={() => setTileTool(t)}
+                  title={TILE_LABEL[t]}
+                >
+                  <span className="tile-swatch" style={{ background: TILE_COLOR[t] }} />
+                  {TILE_LABEL[t]}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="map-image-board" ref={boardRef}>
-            <img src={publicUrlFor(currentMap.image_path)} alt={currentMap.name} draggable={false} />
+            {currentMap.kind === 'tilemap' && currentMap.tile_data ? (
+              <TileMapBoard
+                data={currentMap.tile_data}
+                editable={isGm}
+                tool={tileTool}
+                onChange={(next) => handleTileChange(currentMap.id, next)}
+              />
+            ) : (
+              <img src={publicUrlFor(currentMap.image_path!)} alt={currentMap.name} draggable={false} />
+            )}
             {tokens
               .filter((t) => t.visible_to_player || isGm)
               .map((t) => (

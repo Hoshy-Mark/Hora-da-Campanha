@@ -541,17 +541,26 @@ create policy "monster_templates_owner_all"
   with check (owner_id = auth.uid());
 
 -- =====================================================================
--- MAPS — imagens de mapa por campanha, guardadas no bucket de Storage
--- "maps" (criado mais abaixo). `image_path` é o caminho dentro do bucket,
--- no formato "{campaign_id}/{arquivo}" — as policies de Storage abaixo
--- dependem dessa convenção pra saber quem é o Mestre daquele caminho.
+-- MAPS — mapas de uma campanha, em dois formatos possíveis (`kind`):
+-- 'image' é upload de PNG/JPEG pro bucket de Storage "maps" (criado mais
+-- abaixo), com `image_path` no formato "{campaign_id}/{arquivo}" — as
+-- policies de Storage abaixo dependem dessa convenção pra saber quem é
+-- o Mestre daquele caminho. 'tilemap' é um grid montado na própria tela
+-- (sem arquivo), guardado em `tile_data` como { cols, rows, tiles[] }.
 -- =====================================================================
 create table public.maps (
   id uuid primary key default gen_random_uuid(),
   campaign_id uuid not null references public.campaigns(id) on delete cascade,
   name text not null,
-  image_path text not null,
-  created_at timestamptz not null default now()
+  kind text not null default 'image',
+  image_path text,
+  tile_data jsonb,
+  created_at timestamptz not null default now(),
+  constraint maps_kind_check check (kind in ('image', 'tilemap')),
+  constraint maps_kind_data_check check (
+    (kind = 'image' and image_path is not null)
+    or (kind = 'tilemap' and tile_data is not null)
+  )
 );
 
 alter table public.maps enable row level security;

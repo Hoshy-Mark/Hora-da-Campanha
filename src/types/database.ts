@@ -8,6 +8,7 @@
 import type { SheetData } from './game-system';
 import type { Json } from './json';
 import type { TemplateAbility, TemplateItem } from './monster-template';
+import type { TileMapData } from './tilemap';
 
 type Relationships = { foreignKeyName: string; columns: string[]; isOneToOne?: boolean; referencedRelation: string; referencedColumns: string[] }[];
 
@@ -242,9 +243,25 @@ export interface Database {
         Relationships: Relationships;
       };
       maps: {
-        Row: { id: string; campaign_id: string; name: string; image_path: string; created_at: string };
-        Insert: { id?: string; campaign_id: string; name: string; image_path: string; created_at?: string };
-        Update: Partial<{ name: string; image_path: string }>;
+        Row: {
+          id: string;
+          campaign_id: string;
+          name: string;
+          kind: 'image' | 'tilemap';
+          image_path: string | null;
+          tile_data: TileMapData | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          campaign_id: string;
+          name: string;
+          kind?: 'image' | 'tilemap';
+          image_path?: string | null;
+          tile_data?: TileMapData | null;
+          created_at?: string;
+        };
+        Update: Partial<{ name: string; image_path: string | null; tile_data: TileMapData | null }>;
         Relationships: Relationships;
       };
       map_tokens: {
